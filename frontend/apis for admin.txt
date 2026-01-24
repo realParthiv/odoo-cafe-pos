@@ -1,0 +1,211 @@
+Café POS API - cURL Commands
+Base URL: http://localhost:8000
+
+1. Owner Registration
+curl -X POST http://localhost:8000/api/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "owner@cafe.com",
+    "password": "Owner@123",
+    "confirm_password": "Owner@123",
+    "first_name": "Cafe",
+    "last_name": "Owner",
+    "phone": "+919876543210"
+  }'
+Response:
+
+{
+  "success": true,
+  "message": "Registration successful. Welcome to Café POS!",
+  "data": {
+    "user": { "id": 1, "email": "owner@cafe.com", "role": "admin", ... },
+    "tokens": { "access": "eyJ...", "refresh": "eyJ..." }
+  }
+}
+
+2. Login
+curl -X POST http://localhost:8000/api/auth/login/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "owner@cafe.com",
+    "password": "Owner@123"
+  }'
+Response:
+
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": { "id": 1, "email": "owner@cafe.com", "role": "admin", ... },
+    "tokens": { "access": "ACCESS_TOKEN", "refresh": "REFRESH_TOKEN" },
+    "last_session": null
+  }
+}
+⚠️ Save the access token - you'll need it for authenticated requests below!
+
+3. Get Profile
+curl -X GET http://localhost:8000/api/auth/profile/ \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+
+4. Update Profile
+curl -X PATCH http://localhost:8000/api/auth/profile/ \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "Updated",
+    "last_name": "Owner",
+    "phone": "+919999999999"
+  }'
+
+5. Update UPI ID
+curl -X PATCH http://localhost:8000/api/auth/profile/upi/ \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "upi_id": "owner@upi"
+  }'
+
+6. Change Password
+curl -X POST http://localhost:8000/api/auth/change-password/ \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "current_password": "Owner@123",
+    "new_password": "NewOwner@123",
+    "confirm_new_password": "NewOwner@123"
+  }'
+
+7. Refresh Token
+curl -X POST http://localhost:8000/api/auth/token/refresh/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh": "REFRESH_TOKEN"
+  }'
+
+8. List All Users (Admin Only)
+curl -X GET http://localhost:8000/api/auth/users/ \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+With role filter:
+
+curl -X GET "http://localhost:8000/api/auth/users/?role=cashier" \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+
+9. Get User by ID (Admin Only)
+curl -X GET http://localhost:8000/api/auth/users/1/ \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+
+10. Update User (Admin Only)
+curl -X PATCH http://localhost:8000/api/auth/users/2/ \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "first_name": "Updated Name",
+    "is_active": true
+  }'
+
+11. Deactivate User (Admin Only)
+curl -X DELETE http://localhost:8000/api/auth/users/2/ \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+
+12. Logout
+curl -X POST http://localhost:8000/api/auth/logout/ \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh": "REFRESH_TOKEN"
+  }'
+
+Quick Test Flow
+# 1. Register
+TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/register/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@cafe.com","password":"Test@123","confirm_password":"Test@123","first_name":"Test","last_name":"Owner"}' \
+  | jq -r '.data.tokens.access')
+# 2. Use token
+curl -X GET http://localhost:8000/api/auth/profile/ \
+  -H "Authorization: Bearer $TOKEN"
+Staff Invitation APIs (Admin Only)
+
+13. Invite Staff (Cashier or Kitchen)
+curl -X POST http://localhost:8000/api/auth/staff/invite/ \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "cashier@example.com",
+    "role": "cashier",
+    "first_name": "John",
+    "last_name": "Doe",
+    "phone": "+919876543210",
+    "upi_id": "john@upi"
+  }'
+Response:
+
+{
+  "success": true,
+  "message": "Invitation sent to cashier@example.com",
+  "data": {
+    "invitation": {
+      "id": 1,
+      "email": "cashier@example.com",
+      "role": "cashier",
+      "expires_at": "2026-01-31T14:00:00+05:30"
+    }
+  }
+}
+
+14. List Invitations
+# All invitations
+curl -X GET http://localhost:8000/api/auth/staff/invitations/ \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+# Pending only
+curl -X GET "http://localhost:8000/api/auth/staff/invitations/?status=pending" \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+# By role
+curl -X GET "http://localhost:8000/api/auth/staff/invitations/?role=kitchen" \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+
+15. Resend Invitation
+curl -X POST http://localhost:8000/api/auth/staff/invitations/1/resend/ \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+
+16. Delete Invitation
+curl -X DELETE http://localhost:8000/api/auth/staff/invitations/1/ \
+  -H "Authorization: Bearer ACCESS_TOKEN"
+Staff Onboarding (Public - Token Based)
+
+
+17. Verify Token (Staff clicks email link)
+curl -X GET http://localhost:8000/api/auth/staff/verify-token/abc123token/
+Response:
+
+{
+  "success": true,
+  "message": "Token is valid",
+  "data": {
+    "email": "cashier@example.com",
+    "role": "cashier",
+    "first_name": "John",
+    "last_name": "Doe"
+  }
+}
+
+18. Set Password (Staff creates account)
+curl -X POST http://localhost:8000/api/auth/staff/set-password/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "abc123token",
+    "password": "Cashier@123",
+    "confirm_password": "Cashier@123",
+    "first_name": "John",
+    "last_name": "Doe"
+  }'
+Response:
+
+{
+  "success": true,
+  "message": "Account created successfully. Welcome to Café POS!",
+  "data": {
+    "user": { "id": 2, "email": "cashier@example.com", "role": "cashier" },
+    "tokens": { "access": "...", "refresh": "..." }
+  }
+}
