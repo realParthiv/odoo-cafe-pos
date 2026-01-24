@@ -1,10 +1,13 @@
-import React from "react"
+import React from "react";
+import { BrowserRouter } from "react-router-dom";
+import AuthNavigation from "./Navigation/AuthNavigation";
 
 function App() {
-
   return (
-    <h1 className="bg-red-500">Ude to j haaa</h1>
-  )
+    <BrowserRouter>
+      <AuthNavigation />
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
