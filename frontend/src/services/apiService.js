@@ -532,3 +532,29 @@ export const paymentService = {
     }
   },
 };
+
+export const ordersService = {
+  // 1. Get Kitchen Orders
+  getKitchenOrders: async (filters = {}) => {
+    try {
+      const params = new URLSearchParams(filters);
+      const url = `/api/kitchen/orders/?${params.toString()}`;
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 2. Update Line Status
+  updateLineStatus: async (orderId, lineId, status) => {
+    try {
+      const response = await api.patch(`/api/kitchen/orders/${orderId}/lines/${lineId}/status/`, {
+        status,
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+};
