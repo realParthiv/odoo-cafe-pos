@@ -262,10 +262,24 @@ export const tableService = {
     }
   },
 
-  // 8. Get Table QR
-  getTableQr: async (id) => {
+  // 8. Get QR Code Image
+  getQrCode: async (id) => {
     try {
-      const response = await api.get(`/api/tables/tables/${id}/qr/`);
+      const response = await api.get(`/api/tables/tables/${id}/qr/`, {
+        responseType: "blob",
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 9. Download QR Code PDF
+  downloadQrPdf: async (id) => {
+    try {
+      const response = await api.get(`/api/tables/tables/${id}/qr/pdf/`, {
+        responseType: "blob",
+      });
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
@@ -382,8 +396,54 @@ export const menuService = {
   },
 };
 
+export const settingsService = {
+  // 1. Update Mobile Order Settings
+  updateMobileOrderSettings: async (data) => {
+    try {
+      const response = await api.put("/api/settings/mobile-order/", data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+};
+
 export const orderService = {
-  // 1. Create Order
+  // 1. Get Dashboard Stats
+  getDashboardStats: async () => {
+    try {
+      const response = await api.get("/api/orders/dashboard/stats/");
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 2. Get Sales History
+  getSalesHistory: async (days = 30) => {
+    try {
+      const response = await api.get(
+        `/api/orders/dashboard/sales-history/?days=${days}`,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 3. Get Cashier Performance
+  getCashierPerformance: async () => {
+    try {
+      const response = await api.get(
+        "/api/orders/dashboard/cashier-performance/",
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 4. Create Order
   createOrder: async (data) => {
     try {
       const response = await api.post("/api/orders/", data);
