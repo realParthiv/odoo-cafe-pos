@@ -198,6 +198,16 @@ export const tableService = {
     }
   },
 
+  // 1.5 Get Floor Availability
+  getFloorAvailability: async () => {
+    try {
+      const response = await api.get("/api/tables/floors/availability/");
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
   // 2. Create Floor
   createFloor: async (data) => {
     try {
@@ -397,7 +407,17 @@ export const menuService = {
 };
 
 export const settingsService = {
-  // 1. Update Mobile Order Settings
+  // 1. Get Mobile Order Settings
+  getMobileOrderSettings: async () => {
+    try {
+      const response = await api.get("/api/settings/mobile-order/");
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 2. Update Mobile Order Settings
   updateMobileOrderSettings: async (data) => {
     try {
       const response = await api.put("/api/settings/mobile-order/", data);
@@ -498,6 +518,18 @@ export const orderService = {
     }
   },
 
+  // 7. Send to Kitchen
+  sendToKitchen: async (orderId) => {
+    try {
+      const response = await api.post(
+        `/api/orders/${orderId}/send-to-kitchen/`,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
   // 6. Get Orders (with filters)
   getOrders: async (params = {}) => {
     try {
@@ -526,6 +558,16 @@ export const paymentService = {
   processPayment: async (orderId, data) => {
     try {
       const response = await api.post(`/api/orders/${orderId}/payments/`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 3. Verify Razorpay Payment
+  verifyPayment: async (data) => {
+    try {
+      const response = await api.post("/api/payments/verify/", data);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;

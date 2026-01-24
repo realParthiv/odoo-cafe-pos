@@ -13,10 +13,10 @@ import {
 import { theme } from "../theme/theme";
 import { useAuth } from "../context/AuthContext";
 
-const Sidebar = ({ isOpen, onClose }) => {
+const Sidebar = ({ isOpen, onClose, role = "admin", onCloseSession }) => {
   const { logout } = useAuth();
 
-  const menuGroups = [
+  const adminMenuGroups = [
     {
       title: "Main",
       items: [
@@ -60,6 +60,52 @@ const Sidebar = ({ isOpen, onClose }) => {
     },
   ];
 
+  const cashierMenuGroups = [
+    {
+      title: "POS",
+      items: [
+        {
+          path: "/cashier",
+          icon: Grid,
+          label: "Tables",
+          end: true,
+        },
+        {
+          path: "/cashier/orders",
+          icon: LayoutDashboard,
+          label: "Orders",
+        },
+      ],
+    },
+    {
+      title: "Management",
+      items: [
+        {
+          path: "/cashier/mobile-orders",
+          icon: Grid,
+          label: "Mobile Order",
+        },
+        {
+          path: "/cashier/products",
+          icon: Store,
+          label: "Product Creation",
+        },
+      ],
+    },
+    {
+      title: "Account",
+      items: [
+        {
+          path: "/cashier/profile",
+          icon: UserCircle,
+          label: "My Profile",
+        },
+      ],
+    },
+  ];
+
+  const menuGroups = role === "cashier" ? cashierMenuGroups : adminMenuGroups;
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -87,7 +133,9 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight">Odoo Cafe</h1>
-              <p className="text-xs text-white/60 font-medium">Admin Portal</p>
+              <p className="text-xs text-white/60 font-medium">
+                {role === "cashier" ? "Cashier Portal" : "Admin Portal"}
+              </p>
             </div>
           </div>
           {/* Mobile Close Button */}
@@ -135,14 +183,25 @@ const Sidebar = ({ isOpen, onClose }) => {
         </nav>
 
         {/* Footer / Logout */}
-        <div className="p-4 border-t border-white/10 bg-black/10">
-          <button
-            onClick={logout}
-            className="flex items-center w-full px-4 py-3 rounded-lg text-red-200 hover:bg-red-500/20 hover:text-red-100 transition-all duration-200 group"
-          >
-            <LogOut className="w-5 h-5 mr-3 group-hover:-translate-x-1 transition-transform" />
-            <span className="font-medium text-sm">Sign Out</span>
-          </button>
+        <div className="p-4 border-t border-white/10 bg-black/10 space-y-2">
+          {role === "cashier" && onCloseSession && (
+            <button
+              onClick={onCloseSession}
+              className="flex items-center w-full px-4 py-3 rounded-lg text-orange-200 hover:bg-orange-500/20 hover:text-orange-100 transition-all duration-200 group"
+            >
+              <LogOut className="w-5 h-5 mr-3 group-hover:-translate-x-1 transition-transform" />
+              <span className="font-medium text-sm">Close Session</span>
+            </button>
+          )}
+          {role !== "cashier" && (
+            <button
+              onClick={logout}
+              className="flex items-center w-full px-4 py-3 rounded-lg text-red-200 hover:bg-red-500/20 hover:text-red-100 transition-all duration-200 group"
+            >
+              <LogOut className="w-5 h-5 mr-3 group-hover:-translate-x-1 transition-transform" />
+              <span className="font-medium text-sm">Sign Out</span>
+            </button>
+          )}
         </div>
       </div>
     </>

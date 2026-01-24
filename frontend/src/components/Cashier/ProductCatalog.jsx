@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { menuService } from '../../services/apiService';
+import React, { useState, useEffect } from "react";
+import { menuService } from "../../services/apiService";
 
 const ProductCatalog = ({ onAddToCart }) => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +27,11 @@ const ProductCatalog = ({ onAddToCart }) => {
         if (activeCategory) params.category = activeCategory;
         if (searchTerm) params.search = searchTerm;
         const response = await menuService.getProducts(params);
-        setProducts(response.results || []);
+        // Handle both paginated and direct array responses
+        const productsList = Array.isArray(response)
+          ? response
+          : response.results || response.data || [];
+        setProducts(productsList);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -39,37 +43,37 @@ const ProductCatalog = ({ onAddToCart }) => {
     return () => clearTimeout(timer);
   }, [activeCategory, searchTerm]);
 
-  const filteredProducts = products; // Using server-side filtered products directly
+  const filteredProducts = products;
 
-  if (loading && products.length === 0) return <div className="loading-spinner">Loading Menu...</div>;
+  if (loading && products.length === 0)
+    return <div className="loading-spinner">Loading Menu...</div>;
 
   return (
     <div className="product-catalog">
-      <div className="catalog-header-main">
-        <div className="category-tabs-main">
-          {categories.map(category => (
+      <div className="catalog-header">
+        <div className="category-tabs">
+          <button
+            className={`category-tab ${activeCategory === null ? "active" : ""}`}
+            onClick={() => setActiveCategory(null)}
+          >
+            All
+          </button>
+          {categories.map((category) => (
             <button
               key={category.id}
-              className={`category-tab-btn ${activeCategory === category.id ? 'active' : ''}`}
-              style={{
-                '--cat-color': category.color || (
-                               category.id === 4 ? '#9B59B6' : // Quick Bites (Purple)
-                               category.id === 2 ? '#F5D76E' : // Drinks (Yellow)
-                               category.id === 3 ? '#2ECC71' : // Desert (Green)
-                               '#4A90E2' // Others
-                )
-              }}
-              onClick={() => setActiveCategory(activeCategory === category.id ? null : category.id)}
+              className={`category-tab ${activeCategory === category.id ? "active" : ""}`}
+              style={{ "--category-color": category.color || "#3498db" }}
+              onClick={() => setActiveCategory(category.id)}
             >
-              {category.name === 'Pastries' ? 'Desert' : category.name}
+              {category.name === "Pastries" ? "Desert" : category.name}
             </button>
           ))}
         </div>
-        <div className="search-container-main">
+        <div className="search-container">
           <input
             type="text"
-            className="search-input-main"
-            placeholder="Search product......"
+            className="search-input"
+            placeholder="Search product..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -77,20 +81,32 @@ const ProductCatalog = ({ onAddToCart }) => {
       </div>
 
       <div className="products-grid">
-        {filteredProducts.map(product => (
-          <div key={product.id} className={`product-card ${!product.is_active ? 'unavailable' : ''}`}>
+        {filteredProducts.map((product) => (
+          <div
+            key={product.id}
+            className={`product-card ${!product.is_active ? "unavailable" : ""}`}
+          >
             <div className="product-image">
               <img
                 src={product.image_url || product.image}
                 alt={product.name}
                 className="product-img"
-                style={{ display: (product.image_url || product.image) ? 'block' : 'none' }}
+                style={{
+                  display:
+                    product.image_url || product.image ? "block" : "none",
+                }}
                 onError={(e) => {
-                  e.target.style.display = 'none';
-                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                  e.target.style.display = "none";
+                  if (e.target.nextSibling)
+                    e.target.nextSibling.style.display = "flex";
                 }}
               />
-              <div className="placeholder-image" style={{ display: (product.image_url || product.image) ? 'none' : 'flex' }}>
+              <div
+                className="placeholder-image"
+                style={{
+                  display: product.image_url || product.image ? "none" : "flex",
+                }}
+              >
                 {product.name.charAt(0)}
               </div>
               {!product.is_active && (
@@ -121,7 +137,7 @@ const ProductCatalog = ({ onAddToCart }) => {
                   onClick={() => product.is_active && onAddToCart(product)}
                   disabled={!product.is_active}
                 >
-                  {product.is_active ? '+ Add' : 'Sold Out'}
+                  {product.is_active ? "+ Add" : "Sold Out"}
                 </button>
               </div>
             </div>
