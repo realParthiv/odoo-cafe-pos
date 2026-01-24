@@ -218,13 +218,11 @@ export const tableService = {
     }
   },
 
-  // 4. List Tables
-  getTables: async (floorId = null) => {
+  // 4. List Tables (with filters)
+  getTables: async (params = {}) => {
     try {
-      let url = "/api/tables/tables/";
-      if (floorId) {
-        url += `?floor=${floorId}`;
-      }
+      const queryString = new URLSearchParams(params).toString();
+      const url = `/api/tables/tables/${queryString ? `?${queryString}` : ""}`;
       const response = await api.get(url);
       return response.data;
     } catch (error) {
@@ -264,24 +262,119 @@ export const tableService = {
     }
   },
 
-  // 8. Get QR Code Image
-  getQrCode: async (id) => {
+  // 8. Get Table QR
+  getTableQr: async (id) => {
     try {
-      const response = await api.get(`/api/tables/tables/${id}/qr/`, {
-        responseType: "blob",
-      });
+      const response = await api.get(`/api/tables/tables/${id}/qr/`);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+};
+
+export const sessionService = {
+  // 1. Get Current Session
+  getCurrentSession: async () => {
+    try {
+      const response = await api.get("/api/sessions/current/");
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
     }
   },
 
-  // 9. Download QR Code PDF
-  downloadQrPdf: async (id) => {
+  // 2. Get Last Session
+  getLastSession: async () => {
     try {
-      const response = await api.get(`/api/tables/tables/${id}/qr/pdf/`, {
-        responseType: "blob",
-      });
+      const response = await api.get("/api/sessions/last/");
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 3. Get Session History
+  getSessionHistory: async () => {
+    try {
+      const response = await api.get("/api/sessions/history/");
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 4. Open Session
+  openSession: async (data) => {
+    try {
+      const response = await api.post("/api/sessions/open/", data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 5. Close Session
+  closeSession: async (id, data) => {
+    try {
+      const response = await api.post(`/api/sessions/${id}/close/`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+};
+
+export const menuService = {
+  // 1. Get Products
+  getProducts: async (params = {}) => {
+    try {
+      const queryString = new URLSearchParams(params).toString();
+      const url = `/api/menu/products/${queryString ? `?${queryString}` : ""}`;
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 1.5 Get Categories
+  getCategories: async () => {
+    try {
+      const response = await api.get("/api/menu/categories/");
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 2. Toggle Availability
+  toggleAvailability: async (id, data) => {
+    try {
+      const response = await api.patch(
+        `/api/menu/products/${id}/availability/`,
+        data,
+      );
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 3. Create Category
+  createCategory: async (data) => {
+    try {
+      const response = await api.post("/api/menu/categories/", data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 4. Create Product
+  createProduct: async (data) => {
+    try {
+      const response = await api.post("/api/menu/products/", data);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
@@ -290,21 +383,42 @@ export const tableService = {
 };
 
 export const orderService = {
-  // 1. Get Dashboard Stats
-  getDashboardStats: async () => {
+  // 1. Create Order
+  createOrder: async (data) => {
     try {
-      const response = await api.get("/api/orders/dashboard/stats/");
+      const response = await api.post("/api/orders/", data);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
     }
   },
 
-  // 2. Get Sales History
-  getSalesHistory: async (days = 30) => {
+  // 2. Customer QR Order
+  createQrOrder: async (data) => {
     try {
-      const response = await api.get(
-        `/api/orders/dashboard/sales-history/?days=${days}`,
+      const response = await api.post("/api/orders/qr/", data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 3. Add Order Line
+  addOrderLine: async (orderId, data) => {
+    try {
+      const response = await api.post(`/api/orders/${orderId}/lines/`, data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 4. Update Order Line
+  updateOrderLine: async (orderId, lineId, data) => {
+    try {
+      const response = await api.patch(
+        `/api/orders/${orderId}/lines/${lineId}/`,
+        data,
       );
       return response.data;
     } catch (error) {
@@ -312,12 +426,24 @@ export const orderService = {
     }
   },
 
-  // 3. Get Cashier Performance
-  getCashierPerformance: async () => {
+  // 5. Delete Order Line
+  deleteOrderLine: async (orderId, lineId) => {
     try {
-      const response = await api.get(
-        "/api/orders/dashboard/cashier-performance/",
+      const response = await api.delete(
+        `/api/orders/${orderId}/lines/${lineId}/`,
       );
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 6. Get Orders (with filters)
+  getOrders: async (params = {}) => {
+    try {
+      const queryString = new URLSearchParams(params).toString();
+      const url = `/api/orders/${queryString ? `?${queryString}` : ""}`;
+      const response = await api.get(url);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
@@ -325,11 +451,21 @@ export const orderService = {
   },
 };
 
-export const settingsService = {
-  // 1. Update Mobile Order Settings
-  updateMobileOrderSettings: async (data) => {
+export const paymentService = {
+  // 1. List Payment Methods
+  getPaymentMethods: async () => {
     try {
-      const response = await api.put("/api/settings/mobile-order/", data);
+      const response = await api.get("/api/payments/methods/");
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 2. Process Payment
+  processPayment: async (orderId, data) => {
+    try {
+      const response = await api.post(`/api/orders/${orderId}/payments/`, data);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;

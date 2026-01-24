@@ -1,32 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { sessionService } from '../../services/apiService';
 
 const SessionSelection = ({ onSessionOpen }) => {
   const [startingCash, setStartingCash] = useState('1000');
   const [showOpenForm, setShowOpenForm] = useState(false);
+  const [lastSession, setLastSession] = useState(null);
 
-  // Mock session data
-  const sessionInfo = {
-    name: 'Odoo Cafe',
-    lastOpen: '01/01/2025',
-    lastSale: '$5000',
-  };
+  useEffect(() => {
+    const fetchLastSession = async () => {
+      try {
+        const data = await sessionService.getLastSession();
+        setLastSession(data.data);
+      } catch (error) {
+        console.log("No previous session found");
+      }
+    };
+    fetchLastSession();
+  }, []);
 
-  const handleOpenSession = () => {
+  const handleOpenSession = async () => {
     if (!startingCash || parseFloat(startingCash) < 0) {
       alert('Please enter a valid starting cash amount');
       return;
     }
 
-    const session = {
-      id: Date.now(),
-      cashier_id: 1,
-      cashier_name: 'John Doe',
-      start_time: new Date().toISOString(),
-      starting_cash: parseFloat(startingCash),
-      status: 'open',
-    };
-
-    onSessionOpen(session);
+    try {
+      const response = await sessionService.openSession({
+        starting_cash: parseFloat(startingCash)
+      });
+      onSessionOpen(response.data);
+    } catch (error) {
+      console.error("Failed to open session:", error);
+      alert("Failed to open session: " + (error.message || "Unknown error"));
+    }
   };
 
   return (
@@ -36,16 +42,20 @@ const SessionSelection = ({ onSessionOpen }) => {
         
         <div className="session-card">
           <div className="session-card-header">
-            <h2>{sessionInfo.name}</h2>
+            <h2>{lastSession?.restaurant_name || 'Odoo Cafe'}</h2>
           </div>
           <div className="session-card-body">
             <div className="session-info-row">
               <span className="info-label">Last open:</span>
-              <span className="info-value">{sessionInfo.lastOpen}</span>
+              <span className="info-value">
+                {lastSession?.start_time ? new Date(lastSession.start_time).toLocaleDateString() : 'N/A'}
+              </span>
             </div>
             <div className="session-info-row">
-              <span className="info-label">Last sale:</span>
-              <span className="info-value">{sessionInfo.lastSale}</span>
+              <span className="info-label">Closing balance:</span>
+              <span className="info-value">
+                {lastSession?.closing_cash ? `$${lastSession.closing_cash}` : 'N/A'}
+              </span>
             </div>
           </div>
           <div className="session-card-footer">

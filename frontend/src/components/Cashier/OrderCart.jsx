@@ -14,13 +14,13 @@ const OrderCart = ({
   const [showNoteField, setShowNoteField] = useState(false);
 
   const calculateSubtotal = () => {
-    return cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return cartItems.reduce((sum, item) => sum + Number(item.price || 0) * item.quantity, 0);
   };
 
   const calculateTax = () => {
     return cartItems.reduce((sum, item) => {
-      const lineTotal = item.price * item.quantity;
-      return sum + (lineTotal * item.tax_rate) / 100;
+      const lineTotal = Number(item.price || 0) * item.quantity;
+      return sum + (lineTotal * (item.tax_rate || 0)) / 100;
     }, 0);
   };
 
@@ -29,7 +29,7 @@ const OrderCart = ({
   };
 
   const calculateLineTotal = (item) => {
-    return item.price * item.quantity;
+    return Number(item.price || 0) * item.quantity;
   };
 
   const handleKeypadPress = (key) => {
@@ -118,6 +118,9 @@ const OrderCart = ({
               className={`cart-item ${selectedItemIndex === index ? 'selected' : ''}`}
               onClick={() => setSelectedItemIndex(index)}
             >
+              {(item.image_url || item.image) && (
+                <img src={item.image_url || item.image} alt="" className="cart-item-thumb" />
+              )}
               <div className="item-details">
                 <div className="item-name">
                   {item.name}
@@ -125,7 +128,7 @@ const OrderCart = ({
                 </div>
                 <div className="item-meta">
                   <span className="item-uom">{item.uom}</span>
-                  <span className="item-price">${item.price.toFixed(2)}</span>
+                  <span className="item-price">${Number(item.price || 0).toFixed(2)}</span>
                 </div>
                 {item.notes && <div className="item-note">Notes: {item.notes}</div>}
               </div>

@@ -1,19 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { orderService } from '../../services/apiService';
 
 const OrderHistory = () => {
-  const [orders] = useState([
-    { id: 'ORD-001', table: 'Table 1', customer: 'Walk-in', amount: 45.50, status: 'paid', date: '2025-01-24 10:30' },
-    { id: 'ORD-002', table: 'Table 3', customer: 'John Doe', amount: 120.00, status: 'kitchen', date: '2025-01-24 11:15' },
-    { id: 'ORD-003', table: 'Table 5', customer: 'Jane Smith', amount: 32.75, status: 'draft', date: '2025-01-24 11:45' },
-    { id: 'ORD-004', table: 'Table 2', customer: 'Walk-in', amount: 15.00, status: 'paid', date: '2025-01-24 09:20' },
-    { id: 'ORD-005', table: 'Table 4', customer: 'VIP Guest', amount: 85.20, status: 'kitchen', date: '2025-01-24 12:00' },
-  ]);
-
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
+
+  const fetchOrders = async (search = '') => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (search) params.search = search;
+      const response = await orderService.getOrders(params);
+      console.log("Orders API Response:", response);
+      // Handle both paginated results and direct data.orders if any
+      const data = response?.results || response?.data?.orders || response?.orders || [];
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchOrders(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'paid': return '#27ae60';
+      case 'paid':
+      case 'completed': return '#27ae60';
       case 'kitchen': return '#f39c12';
       case 'draft': return '#3498db'; // Blue for draft/new
       case 'cancelled': return '#e74c3c';
@@ -27,7 +48,12 @@ const OrderHistory = () => {
         <div className="orders-header">
           <h3>Recent Orders</h3>
           <div className="orders-filter">
-            <input type="text" placeholder="Search orders..." />
+            <input 
+              type="text" 
+              placeholder="Search order #..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
         <div className="orders-list">
@@ -38,18 +64,19 @@ const OrderHistory = () => {
               onClick={() => setSelectedOrder(order)}
             >
               <div className="order-card-header">
-                <span className="order-id">{order.id}</span>
-                <span className="order-amount">${order.amount.toFixed(2)}</span>
+                <span className="order-id">{order.order_number}</span>
+                <span className="order-amount">${parseFloat(order.total_amount).toFixed(2)}</span>
               </div>
               <div className="order-card-details">
-                <span>{order.table}</span>
-                <span>{order.time}</span>
+                <span>Table: {order.table_number || 'N/A'}</span>
+                <span>{new Date(order.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
               <div className="order-status-badge" style={{ backgroundColor: getStatusColor(order.status) }}>
                 {order.status.toUpperCase()}
               </div>
             </div>
           ))}
+          {loading && orders.length === 0 && <div className="loading-small">Loading...</div>}
         </div>
       </div>
 
@@ -63,15 +90,15 @@ const OrderHistory = () => {
             <div className="detail-info-grid">
               <div className="info-group">
                 <label>Customer</label>
-                <span>{selectedOrder.customer}</span>
+                <span>{selectedOrder.customer_name || 'Walk-in'}</span>
               </div>
               <div className="info-group">
                 <label>Table</label>
-                <span>{selectedOrder.table}</span>
+                <span>{selectedOrder.table_number || 'N/A'}</span>
               </div>
               <div className="info-group">
                 <label>Date</label>
-                <span>{selectedOrder.date}</span>
+                <span>{new Date(selectedOrder.created_at).toLocaleString()}</span>
               </div>
               <div className="info-group">
                 <label>Status</label>
@@ -83,18 +110,15 @@ const OrderHistory = () => {
             
             <div className="detail-lines">
               <h4>Order Items</h4>
-              {/* Mock items for now */}
-              <div className="detail-line-item">
-                <span>1 x Burger</span>
-                <span>$15.00</span>
-              </div>
-              <div className="detail-line-item">
-                <span>2 x Coffee</span>
-                <span>$10.00</span>
-              </div>
+              {selectedOrder.lines?.map((line, idx) => (
+                <div key={idx} className="detail-line-item">
+                  <span>{line.quantity} x {line.product_name}</span>
+                  <span>${parseFloat(line.price_subtotal).toFixed(2)}</span>
+                </div>
+              ))}
               <div className="detail-total">
                 <span>Total</span>
-                <span>${selectedOrder.amount.toFixed(2)}</span>
+                <span>${parseFloat(selectedOrder.total_amount).toFixed(2)}</span>
               </div>
             </div>
 

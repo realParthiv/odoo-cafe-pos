@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { PAYMENT_METHODS } from '../../constants/mockData';
+import { paymentService } from '../../services/apiService';
 
 const PaymentModal = ({ isOpen, onClose, orderTotal, onConfirmPayment }) => {
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [amountPaid, setAmountPaid] = useState('');
   const [splitPayments, setSplitPayments] = useState([]);
@@ -10,7 +11,17 @@ const PaymentModal = ({ isOpen, onClose, orderTotal, onConfirmPayment }) => {
   const [isInvoice, setIsInvoice] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
+    const fetchMethods = async () => {
+      try {
+        const data = await paymentService.getPaymentMethods();
+        setPaymentMethods(data);
+      } catch (error) {
+        console.error("Error fetching payment methods:", error);
+      }
+    };
+    if (isOpen) {
+      fetchMethods();
+    } else {
       setPaymentStatus('idle');
       setSplitPayments([]);
       setAmountPaid('');
@@ -32,7 +43,7 @@ const PaymentModal = ({ isOpen, onClose, orderTotal, onConfirmPayment }) => {
   const remainingAmount = Math.max(0, orderTotal - calculateSplitTotal());
 
   const handleAddSplitPayment = (methodId, amount) => {
-    const method = PAYMENT_METHODS.find(m => m.id === methodId);
+    const method = paymentMethods.find(m => m.id === methodId);
     setSplitPayments([
       ...splitPayments,
       {

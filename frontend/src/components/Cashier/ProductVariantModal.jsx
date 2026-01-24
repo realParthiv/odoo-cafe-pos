@@ -11,8 +11,8 @@ const ProductVariantModal = ({ isOpen, onClose, product, onAddToCart }) => {
   const hasVariants = variants.length > 0;
 
   const calculatePrice = () => {
-    if (!selectedVariant) return product.price;
-    return product.price + selectedVariant.extra_price;
+    if (!selectedVariant) return Number(product.price || 0);
+    return Number(product.price || 0) + Number(selectedVariant.extra_price || 0);
   };
 
   const handleAddToCart = () => {
@@ -26,9 +26,11 @@ const ProductVariantModal = ({ isOpen, onClose, product, onAddToCart }) => {
       name: product.name,
       price: calculatePrice(),
       quantity: quantity,
-      tax_rate: product.tax_rate,
+      tax_rate: Number(product.tax_rate || 0),
       uom: selectedVariant ? selectedVariant.unit : product.uom,
       variant: selectedVariant ? `${selectedVariant.attribute}: ${selectedVariant.value}` : null,
+      variant_id: selectedVariant ? selectedVariant.id : null,
+      image: product.image_url || product.image,
     };
 
     onAddToCart(cartItem);

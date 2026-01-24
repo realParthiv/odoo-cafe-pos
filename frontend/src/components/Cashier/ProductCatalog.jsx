@@ -1,31 +1,63 @@
-import React, { useState } from 'react';
-import { PRODUCTS, CATEGORIES } from '../../constants/mockData';
+import React, { useState, useEffect } from 'react';
+import { menuService } from '../../services/apiService';
 
 const ProductCatalog = ({ onAddToCart }) => {
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Filter based on search and category
-  const filteredProducts = PRODUCTS.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = activeCategory ? product.category_id === activeCategory : true;
-    return matchesSearch && matchesCategory;
-  });
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await menuService.getCategories();
+        setCategories(response.results || []);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const params = {};
+        if (activeCategory) params.category = activeCategory;
+        if (searchTerm) params.search = searchTerm;
+        const response = await menuService.getProducts(params);
+        setProducts(response.results || []);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const timer = setTimeout(fetchProducts, 300);
+    return () => clearTimeout(timer);
+  }, [activeCategory, searchTerm]);
+
+  const filteredProducts = products; // Using server-side filtered products directly
+
+  if (loading && products.length === 0) return <div className="loading-spinner">Loading Menu...</div>;
 
   return (
     <div className="product-catalog">
       <div className="catalog-header-main">
         <div className="category-tabs-main">
-          {CATEGORIES.map(category => (
+          {categories.map(category => (
             <button
               key={category.id}
               className={`category-tab-btn ${activeCategory === category.id ? 'active' : ''}`}
               style={{
-                '--cat-color': category.id === 4 ? '#9B59B6' : // Quick Bites (Purple)
+                '--cat-color': category.color || (
+                               category.id === 4 ? '#9B59B6' : // Quick Bites (Purple)
                                category.id === 2 ? '#F5D76E' : // Drinks (Yellow)
                                category.id === 3 ? '#2ECC71' : // Desert (Green)
                                '#4A90E2' // Others
+                )
               }}
               onClick={() => setActiveCategory(activeCategory === category.id ? null : category.id)}
             >
@@ -46,20 +78,26 @@ const ProductCatalog = ({ onAddToCart }) => {
 
       <div className="products-grid">
         {filteredProducts.map(product => (
-          <div key={product.id} className="product-card">
+          <div key={product.id} className={`product-card ${!product.is_active ? 'unavailable' : ''}`}>
             <div className="product-image">
               <img
-                src={product.image_url}
+                src={product.image_url || product.image}
                 alt={product.name}
                 className="product-img"
+                style={{ display: (product.image_url || product.image) ? 'block' : 'none' }}
                 onError={(e) => {
                   e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'flex';
+                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
                 }}
               />
-              <div className="placeholder-image" style={{ display: 'none' }}>
+              <div className="placeholder-image" style={{ display: (product.image_url || product.image) ? 'none' : 'flex' }}>
                 {product.name.charAt(0)}
               </div>
+              {!product.is_active && (
+                <div className="sold-out-overlay">
+                  <span>SOLD OUT</span>
+                </div>
+              )}
             </div>
             <div className="product-details">
               <h4 className="product-name">{product.name}</h4>
@@ -80,9 +118,10 @@ const ProductCatalog = ({ onAddToCart }) => {
                 </div>
                 <button
                   className="add-btn"
-                  onClick={() => onAddToCart(product)}
+                  onClick={() => product.is_active && onAddToCart(product)}
+                  disabled={!product.is_active}
                 >
-                  + Add
+                  {product.is_active ? '+ Add' : 'Sold Out'}
                 </button>
               </div>
             </div>
