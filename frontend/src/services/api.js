@@ -5,20 +5,27 @@ const api = axios.create({
   baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
   },
 });
 
 // Add a request interceptor
 api.interceptors.request.use(
   (config) => {
-    // You can add auth tokens here if needed
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    console.log("🚀 API Request:", {
+      url: `${config.baseURL || ""}${config.url}`,
+      method: config.method?.toUpperCase(),
+      headers: config.headers,
+      data: config.data,
+    });
     return config;
   },
   (error) => {
+    console.error("❌ API Request Error:", error);
     return Promise.reject(error);
   },
 );
@@ -26,10 +33,19 @@ api.interceptors.request.use(
 // Add a response interceptor
 api.interceptors.response.use(
   (response) => {
+    console.log("✅ API Response:", {
+      url: response.config.url,
+      status: response.status,
+      data: response.data,
+    });
     return response;
   },
   (error) => {
-    // Handle errors globally
+    console.error("❌ API Response Error:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
     return Promise.reject(error);
   },
 );
