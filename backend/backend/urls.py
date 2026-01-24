@@ -17,7 +17,7 @@ urlpatterns = [
     # Placeholder for future apps
     # path('api/sessions/', include('apps.sessions.urls', namespace='sessions')),
     # path('api/menu/', include('apps.menu.urls', namespace='menu')),
-    # path('api/tables/', include('apps.tables.urls', namespace='tables')),
+    path('api/tables/', include('apps.tables.urls', namespace='tables')),
     # path('api/orders/', include('apps.orders.urls', namespace='orders')),
     # path('api/kitchen/', include('apps.kitchen.urls', namespace='kitchen')),
     # path('api/payments/', include('apps.payments.urls', namespace='payments')),

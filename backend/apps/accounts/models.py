@@ -137,12 +137,46 @@ class User(AbstractBaseUser, PermissionsMixin):
         """Check if user is kitchen staff."""
         return self.role == self.Role.KITCHEN
     
+    # Staff specific fields
+    employee_code = models.CharField(
+        max_length=20,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text='Auto-generated code for staff (e.g., POS-001)'
+    )
+
     def save(self, *args, **kwargs):
-        """Override save to handle role-specific logic."""
+        """Override save to handle role-specific logic and auto-generate code."""
         # Admins should always be staff
         if self.role == self.Role.ADMIN:
             self.is_staff = True
+            
+        # Auto-generate employee code for staff if not exists
+        if not self.employee_code and self.role in [self.Role.CASHIER, self.Role.KITCHEN]:
+            self.employee_code = self.generate_employee_code()
+            
         super().save(*args, **kwargs)
+
+    def generate_employee_code(self):
+        """Generate unique employee code like POS-001."""
+        prefix = "POS"
+        # Get the last used code
+        last_user = User.objects.filter(
+            employee_code__startswith=prefix
+        ).order_by('-employee_code').first()
+        
+        if last_user and last_user.employee_code:
+            try:
+                # Extract number part: POS-001 -> 001
+                last_number = int(last_user.employee_code.split('-')[1])
+                new_number = last_number + 1
+            except (IndexError, ValueError):
+                new_number = 1
+        else:
+            new_number = 1
+            
+        return f"{prefix}-{new_number:03d}"
 
 
 class StaffInvitation(models.Model):
