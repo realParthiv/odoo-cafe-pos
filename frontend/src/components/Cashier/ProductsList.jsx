@@ -1,12 +1,34 @@
-import React, { useState } from 'react';
-import { PRODUCTS, CATEGORIES } from '../../constants/mockData';
+import React, { useState, useEffect } from 'react';
+import { menuService } from '../../services/apiService';
 import CategoryManagement from './CategoryManagement';
 import ProductCreation from './ProductCreation';
 
 const ProductsList = () => {
   const [activeTab, setActiveTab] = useState('products'); // 'products', 'category', 'create'
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [filterCategory, setFilterCategory] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [catsRes, prodsRes] = await Promise.all([
+          menuService.getCategories(),
+          menuService.getProducts(filterCategory ? { category: filterCategory } : {})
+        ]);
+        setCategories(catsRes.results || []);
+        setProducts(prodsRes.results || []);
+      } catch (error) {
+        console.error("Failed to fetch product data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [filterCategory]);
 
   if (activeTab === 'create') {
     return (
@@ -52,9 +74,7 @@ const ProductsList = () => {
     );
   }
 
-  const filteredProducts = filterCategory
-    ? PRODUCTS.filter(p => p.category_id === filterCategory)
-    : PRODUCTS;
+  const filteredProducts = products;
 
   const handleSelectProduct = (productId) => {
     setSelectedProducts(prev =>
@@ -93,6 +113,18 @@ const ProductsList = () => {
         break;
     }
     setSelectedProducts([]);
+  };
+
+  const handleToggleAvailability = async (productId, currentStatus) => {
+    try {
+      await menuService.toggleAvailability(productId, { is_active: !currentStatus });
+      // Refresh list
+      const prodsRes = await menuService.getProducts(filterCategory ? { category: filterCategory } : {});
+      setProducts(prodsRes.results || []);
+    } catch (error) {
+      console.error("Failed to toggle availability:", error);
+      alert("Failed to update availability");
+    }
   };
 
   return (
@@ -145,7 +177,7 @@ const ProductsList = () => {
           onChange={(e) => setFilterCategory(e.target.value ? parseInt(e.target.value) : null)}
         >
           <option value="">All Categories</option>
-          {CATEGORIES.map(cat => (
+          {categories.map(cat => (
             <option key={cat.id} value={cat.id}>{cat.name}</option>
           ))}
         </select>
@@ -167,6 +199,7 @@ const ProductsList = () => {
               <th>Tax</th>
               <th>UOM</th>
               <th>Category</th>
+              <th>Availability</th>
             </tr>
           </thead>
           <tbody>
@@ -184,8 +217,12 @@ const ProductsList = () => {
                 </td>
                 <td className="product-name-col">
                   <div className="product-name-cell">
-                    <div className="product-icon">
-                      {product.name.charAt(0)}
+                    <div className="product-icon-list">
+                      {product.image_url || product.image ? (
+                        <img src={product.image_url || product.image} alt="" className="product-list-thumb" />
+                      ) : (
+                        <span>{product.name.charAt(0)}</span>
+                      )}
                     </div>
                     <span>{product.name}</span>
                   </div>
@@ -205,6 +242,14 @@ const ProductsList = () => {
                       ⚙️
                     </span>
                   )}
+                </td>
+                <td className="availability-col">
+                  <div 
+                    className={`status-toggle ${product.is_active ? 'active' : ''}`}
+                    onClick={() => handleToggleAvailability(product.id, product.is_active)}
+                  >
+                    <div className="toggle-handle"></div>
+                  </div>
                 </td>
               </tr>
             ))}

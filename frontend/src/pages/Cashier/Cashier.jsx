@@ -1,24 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import SessionSelection from "../../components/Cashier/SessionSelection";
 import POSTerminal from "../../components/Cashier/POSTerminal";
 import CashierSettings from "../../components/Cashier/CashierSettings";
+import { sessionService } from "../../services/apiService";
 import "../../styles/cashier.css";
 
 const Cashier = () => {
   const [currentSession, setCurrentSession] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const session = await sessionService.getCurrentSession();
+        setCurrentSession(session);
+      } catch (error) {
+        console.log('No active session');
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkSession();
+  }, []);
 
   const handleSessionOpen = (session) => {
     setCurrentSession(session);
     console.log('Session opened:', session);
   };
 
-  const handleCloseSession = () => {
+  const handleCloseSession = async () => {
     if (window.confirm('Are you sure you want to close the current session?')) {
-      setCurrentSession(null);
-      setShowSettings(false);
+      try {
+        await sessionService.closeSession(currentSession.id, {
+          closing_cash: 0, // Should probably prompt for this
+          notes: "Closed by user"
+        });
+        setCurrentSession(null);
+        setShowSettings(false);
+      } catch (error) {
+        console.error("Failed to close session:", error);
+        alert("Failed to close session");
+      }
     }
   };
+
+  if (loading) return <div className="loading-spinner">Initializing Session...</div>;
 
   // If no session is open, show session selection
   if (!currentSession) {

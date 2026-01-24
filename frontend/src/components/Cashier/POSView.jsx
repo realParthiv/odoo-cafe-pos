@@ -3,12 +3,14 @@ import ProductCatalog from './ProductCatalog';
 import OrderCart from './OrderCart';
 import PaymentModal from './PaymentModal';
 import ProductVariantModal from './ProductVariantModal';
+import { orderService, paymentService } from '../../services/apiService';
 
-const POSView = () => {
+const POSView = ({ selectedTable }) => {
   const [cartItems, setCartItems] = useState([]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
 
   const handleAddToCart = (product) => {
     // Check if product has variants
@@ -22,11 +24,12 @@ const POSView = () => {
     addProductToCart({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: Number(product.price || 0),
       quantity: 1,
-      tax_rate: product.tax_rate,
+      tax_rate: Number(product.tax_rate || 0),
       uom: product.uom,
       variant: null,
+      image: product.image_url || product.image,
     });
   };
 
@@ -61,20 +64,63 @@ const POSView = () => {
     }
   };
 
-  const handleSendToKitchen = () => {
-    console.log('Sending to kitchen:', cartItems);
-    alert('Order sent to kitchen!');
+  const handleSendToKitchen = async () => {
+    if (!selectedTable) {
+      alert("Please select a table first!");
+      return;
+    }
+    
+    try {
+      const orderData = {
+        table: selectedTable.id,
+        order_type: 'dine_in'
+      };
+      const response = await orderService.createOrder(orderData);
+      const orderId = response.id;
+      setCurrentOrderId(orderId);
+
+      // Add lines
+      for (const item of cartItems) {
+        await orderService.addOrderLine(orderId, {
+          product: item.id,
+          variant: item.variant_id,
+          quantity: item.quantity,
+          unit_price: item.price
+        });
+      }
+
+      alert('Order sent to kitchen!');
+    } catch (error) {
+      console.error("Failed to send to kitchen:", error);
+      alert("Failed to send to kitchen: " + (error.message || "Unknown error"));
+    }
   };
 
   const handlePayment = () => {
+    if (!currentOrderId && cartItems.length > 0) {
+       // Ideally we should create the order first if not created
+       // but for now let's assume send to kitchen happened
+       alert("Please send order to kitchen before payment!");
+       return;
+    }
     setShowPaymentModal(true);
   };
 
-  const handleConfirmPayment = (paymentData) => {
-    console.log('Payment confirmed:', paymentData);
-    alert('Payment successful! Receipt generated.');
-    setShowPaymentModal(false);
-    setCartItems([]);
+  const handleConfirmPayment = async (paymentData) => {
+    try {
+      const response = await paymentService.processPayment(currentOrderId, {
+        payments: [paymentData]
+      });
+      if (response.success) {
+        alert('Payment successful!');
+        setShowPaymentModal(false);
+        setCartItems([]);
+        setCurrentOrderId(null);
+      }
+    } catch (error) {
+      console.error("Payment failed:", error);
+      alert("Payment failed: " + (error.message || "Unknown error"));
+    }
   };
 
   const calculateTotal = () => {

@@ -1,179 +1,170 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Layers, 
+  Users, 
+  LayoutGrid, 
+  Armchair, 
+  UtensilsCrossed,
+  Loader2
+} from "lucide-react";
+import { theme } from "../../theme/theme";
+import { tableService } from '../../services/apiService';
 
 const FloorConfiguration = () => {
-  const [floorName, setFloorName] = useState('Ground Floor');
-  const [posName, setPosName] = useState('Odoo Cafe');
-  const [selectedTables, setSelectedTables] = useState([]);
-  
-  const [tables, setTables] = useState([
-    { id: 101, number: '101', seats: 5, active: true, resource: 'Table 3 (Seating 2)' },
-    { id: 102, number: '102', seats: 8, active: false, resource: 'Table 3 (Seating 2)' },
-    { id: 103, number: '101', seats: 5, active: true, resource: 'Table 3 (Seating 2)' },
-    { id: 104, number: '102', seats: 8, active: true, resource: 'Table 3 (Seating 2)' },
-  ]);
+  const [floors, setFloors] = useState([]);
+  const [selectedFloorId, setSelectedFloorId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleSelectTable = (id) => {
-    setSelectedTables(prev => 
-      prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
-    );
-  };
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedTables(tables.map(t => t.id));
-    } else {
-      setSelectedTables([]);
-    }
-  };
-
-  const handleDeleteSelected = () => {
-    if (window.confirm(`Delete ${selectedTables.length} tables?`)) {
-      setTables(tables.filter(t => !selectedTables.includes(t.id)));
-      setSelectedTables([]);
-    }
-  };
-
-  const handleDuplicateSelected = () => {
-    const newTables = [...tables];
-    selectedTables.forEach(id => {
-      const original = tables.find(t => t.id === id);
-      if (original) {
-        newTables.push({
-          ...original,
-          id: Math.max(...newTables.map(t => t.id), 0) + 1,
-          number: `${original.number} (Copy)`
-        });
+  useEffect(() => {
+    const fetchFloors = async () => {
+      try {
+        setLoading(true);
+        const response = await tableService.getFloors();
+        const data = response.results || [];
+        setFloors(data);
+        if (data.length > 0) {
+          setSelectedFloorId(data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch floors:", error);
+      } finally {
+        setLoading(false);
       }
-    });
-    setTables(newTables);
-    setSelectedTables([]);
-  };
+    };
+    fetchFloors();
+  }, []);
 
-  const handleAddTable = () => {
-    const newId = tables.length > 0 ? Math.max(...tables.map(t => t.id)) + 1 : 101;
-    setTables([...tables, { 
-      id: newId, 
-      number: '', 
-      seats: 2, 
-      active: true, 
-      resource: '' 
-    }]);
-  };
+  const selectedFloor = floors.find(f => f.id === selectedFloorId);
+  const tables = selectedFloor ? selectedFloor.tables : [];
 
-  const handleTableChange = (id, field, value) => {
-    setTables(tables.map(t => t.id === id ? { ...t, [field]: value } : t));
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  if (floors.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center p-12 bg-gray-50/50 rounded-xl border border-dashed border-gray-300">
+        <Layers className="w-12 h-12 text-gray-300 mb-4" />
+        <h3 className="text-lg font-bold text-gray-900">No Floors Configured</h3>
+        <p className="text-gray-500 max-w-xs">Contact an administrator to set up restaurant floors and tables.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="floor-config-container">
-      <div className="config-header">
-        <h2>Floor Configuration</h2>
-        {selectedTables.length > 0 && (
-          <div className="bulk-actions">
-            <span className="selection-count">{selectedTables.length} Selected</span>
-            <div className="action-buttons">
-              <button className="btn-bulk-action" onClick={handleDuplicateSelected}>
-                📄 Duplicate
-              </button>
-              <button className="btn-bulk-action delete" onClick={handleDeleteSelected}>
-                🗑️ Delete
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="config-form">
-        <div className="form-row">
-          <div className="input-group">
-            <label>Floor Name</label>
-            <input 
-              type="text" 
-              value={floorName}
-              onChange={(e) => setFloorName(e.target.value)}
-              className="input-underlined"
-            />
-          </div>
-          <div className="input-group">
-            <label>Point Of Sale</label>
-            <div className="value-display">{posName}</div>
+    <div className="flex flex-col h-full bg-gray-50 rounded-xl overflow-hidden border border-gray-200">
+      {/* Header Section */}
+      <div className="bg-white border-b border-gray-200 px-8 py-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Floor Layout</h1>
+            <p className="text-gray-500 text-sm mt-1">View active restaurant seating and capacity</p>
           </div>
         </div>
 
-        <div className="table-list-section">
-          <table className="config-table">
-            <thead>
-              <tr>
-                <th className="checkbox-col">
-                  <input 
-                    type="checkbox" 
-                    onChange={handleSelectAll}
-                    checked={selectedTables.length === tables.length && tables.length > 0}
-                  />
-                </th>
-                <th>Table Number</th>
-                <th>Seats</th>
-                <th>Active</th>
-                <th>Appointment Resource</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {tables.map(table => (
-                <tr key={table.id} className={selectedTables.includes(table.id) ? 'selected' : ''}>
-                  <td className="checkbox-col">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedTables.includes(table.id)}
-                      onChange={() => handleSelectTable(table.id)}
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="text" 
-                      value={table.number}
-                      onChange={(e) => handleTableChange(table.id, 'number', e.target.value)}
-                      className="table-input"
-                      placeholder="e.g. 105"
-                    />
-                  </td>
-                  <td>
-                    <input 
-                      type="number" 
-                      value={table.seats}
-                      onChange={(e) => handleTableChange(table.id, 'seats', parseInt(e.target.value) || 0)}
-                      className="table-input small"
-                    />
-                  </td>
-                  <td>
-                    <div 
-                      className={`status-toggle ${table.active ? 'active' : ''}`}
-                      onClick={() => handleTableChange(table.id, 'active', !table.active)}
+        {/* Floor Tabs */}
+        <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar pb-1">
+          {floors.map((floor) => (
+            <div
+              key={floor.id}
+              onClick={() => setSelectedFloorId(floor.id)}
+              className={`
+                group relative px-6 py-3 rounded-lg cursor-pointer transition-all duration-200 flex items-center min-w-[140px] justify-center border
+                ${
+                  selectedFloorId === floor.id
+                    ? "bg-gray-900 text-white border-gray-900 shadow-md"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }
+              `}
+            >
+              <span className="font-medium">{floor.name}</span>
+              <span
+                className={`ml-3 text-xs px-2 py-0.5 rounded-full ${
+                  selectedFloorId === floor.id
+                    ? "bg-white/20 text-white"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {floor.tables?.length || 0}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-hidden flex flex-col relative">
+        {/* Floor Stats Bar */}
+        <div className="bg-white/50 backdrop-blur-sm border-b border-gray-200 px-8 py-3 flex justify-between items-center text-sm text-gray-500 sticky top-0 z-10">
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center">
+              <Armchair className="w-4 h-4 mr-2 text-gray-400" />
+              <span>
+                Total Capacity:{" "}
+                <span className="font-bold text-gray-900">
+                  {tables.reduce((acc, t) => acc + (parseInt(t.capacity) || 0), 0)}
+                </span>
+              </span>
+            </div>
+            <div className="flex items-center">
+              <UtensilsCrossed className="w-4 h-4 mr-2 text-gray-400" />
+              <span>
+                Active Tables:{" "}
+                <span className="font-bold text-gray-900">{tables.length}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tables Grid */}
+        <div className="flex-1 overflow-y-auto p-8">
+          {tables.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-400 py-12">
+              <LayoutGrid className="w-16 h-16 mb-4 opacity-20" />
+              <p className="text-lg font-medium text-gray-500">This floor has no tables</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {tables.map((table) => (
+                <div
+                  key={table.id}
+                  className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 transition-all hover:shadow-md hover:border-blue-100"
+                >
+                  <div className="flex flex-col items-center justify-center py-6">
+                    <div
+                      className={`
+                      w-24 h-24 mb-5 flex items-center justify-center border-2 text-gray-500 bg-gray-50 transition-colors
+                      ${
+                        table.shape === "round" || table.shape === "circle"
+                          ? "rounded-full"
+                          : "rounded-2xl"
+                      }
+                    `}
                     >
-                      <div className="toggle-handle"></div>
+                      <span className="font-bold text-2xl">
+                        {table.table_number}
+                      </span>
                     </div>
-                  </td>
-                  <td>
-                    <input 
-                      type="text"
-                      value={table.resource}
-                      onChange={(e) => handleTableChange(table.id, 'resource', e.target.value)}
-                      className="table-input"
-                      placeholder="Optional resource"
-                    />
-                  </td>
-                  <td className="action-col">
-                    <button className="btn-icon">⋮</button>
-                  </td>
-                </tr>
+                    <div className="flex items-center text-gray-500 text-sm bg-gray-100 px-4 py-1.5 rounded-full">
+                      <Users className="w-3 h-3 mr-2" />
+                      <span className="font-medium">
+                        {table.capacity} Seats
+                      </span>
+                    </div>
+                    {table.name && (
+                      <span className="text-xs text-gray-400 mt-2 italic">
+                        {table.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
               ))}
-              <tr className="add-row">
-                <td colSpan="6">
-                  <button className="btn-add-line" onClick={handleAddTable}>Add a line</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
       </div>
     </div>

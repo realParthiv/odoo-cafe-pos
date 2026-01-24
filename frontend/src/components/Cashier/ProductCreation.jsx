@@ -1,17 +1,33 @@
-import React, { useState } from 'react';
-import { CATEGORIES } from '../../constants/mockData';
+import React, { useState, useEffect } from 'react';
+import { menuService } from '../../services/apiService';
 import CategoryManagement from './CategoryManagement';
 
 const ProductCreation = () => {
   const [activeTab, setActiveTab] = useState('general');
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [productData, setProductData] = useState({
     name: '',
     category_id: '',
     description: '',
     price: '',
-    tax: '5%',
-    uom: 'Unit'
+    tax: 5,
+    uom: 'Unit',
+    image: null,
+    imagePreview: null
   });
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await menuService.getCategories();
+        setCategories(response.results || []);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const [variants, setVariants] = useState([
     { id: 1, attribute: 'Pack', value: '6', unit: 'Unit', extraPrice: '20' },
@@ -35,13 +51,66 @@ const ProductCreation = () => {
     setVariants(variants.filter(v => v.id !== id));
   };
 
+  const handleSave = async () => {
+    if (!productData.name || !productData.category_id || !productData.price) {
+      alert("Please fill in all required fields (Name, Category, Price)");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        category: parseInt(productData.category_id),
+        name: productData.name,
+        description: productData.description,
+        price: parseFloat(productData.price).toFixed(2),
+        tax_rate: parseInt(productData.tax),
+        uom: productData.uom,
+        has_variants: variants.length > 0,
+        image: productData.imagePreview, // This is the Base64 string from the reader
+        variants: variants.map(v => ({
+          attribute: v.attribute,
+          value: v.value,
+          unit: v.unit || productData.uom,
+          extra_price: parseFloat(v.extraPrice || 0).toFixed(2),
+          is_active: true
+        }))
+      };
+
+      console.log('JSON Payload:', payload);
+      
+      await menuService.createProduct(payload);
+      alert("Product created successfully!");
+      // Reset form or navigate
+      setProductData({
+        name: '',
+        category_id: '',
+        description: '',
+        price: '',
+        tax: 5,
+        uom: 'Unit',
+        image: null,
+        imagePreview: null
+      });
+      setVariants([]);
+      setActiveTab('general');
+    } catch (error) {
+      console.error("Failed to create product:", error);
+      alert("Failed to create product: " + (error.message || "Unknown error"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="product-creation-container">
       <div className="admin-header">
         <h2>Product Configuration</h2>
         <div className="header-actions">
-          <button className="btn-save">Save</button>
-          <button className="btn-discard">Discard</button>
+          <button className="btn-save" onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save'}
+          </button>
+          <button className="btn-discard" onClick={() => window.location.reload()}>Discard</button>
         </div>
       </div>
 
@@ -88,7 +157,7 @@ const ProductCreation = () => {
                   onChange={(e) => handleInputChange('category_id', e.target.value)}
                 >
                   <option value="">Select Category...</option>
-                  {CATEGORIES.map(cat => (
+                  {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
@@ -101,6 +170,51 @@ const ProductCreation = () => {
                   value={productData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                 />
+              </div>
+
+              <div className="form-group image-upload-group">
+                <label>Product Image</label>
+                <div className="image-preview-container">
+                  {productData.imagePreview ? (
+                    <div className="preview-wrapper">
+                      <img src={productData.imagePreview} alt="Preview" className="image-preview" />
+                      <button 
+                        className="btn-change-image"
+                        onClick={() => document.getElementById('product-image-input').click()}
+                      >
+                        Change Image
+                      </button>
+                    </div>
+                  ) : (
+                    <div 
+                      className="upload-placeholder"
+                      onClick={() => document.getElementById('product-image-input').click()}
+                    >
+                      <span className="upload-icon">📷</span>
+                      <span>Click to upload image</span>
+                    </div>
+                  )}
+                  <input 
+                    id="product-image-input"
+                    type="file" 
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setProductData({
+                            ...productData,
+                            image: file,
+                            imagePreview: reader.result
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="form-group price-group">
@@ -128,11 +242,13 @@ const ProductCreation = () => {
                 <label>Customer Tax</label>
                 <select 
                   value={productData.tax}
-                  onChange={(e) => handleInputChange('tax', e.target.value)}
+                  onChange={(e) => handleInputChange('tax', parseInt(e.target.value))}
                 >
-                  <option value="5%">5%</option>
-                  <option value="18%">18%</option>
-                  <option value="28%">28%</option>
+                  <option value={5}>5%</option>
+                  <option value={10}>10%</option>
+                  <option value={12}>12%</option>
+                  <option value={18}>18%</option>
+                  <option value={28}>28%</option>
                 </select>
               </div>
             </div>

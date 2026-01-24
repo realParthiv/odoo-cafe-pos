@@ -1,11 +1,28 @@
-import React, { useState } from 'react';
-import { CATEGORIES } from '../../constants/mockData';
+import React, { useState, useEffect } from 'react';
+import { menuService } from '../../services/apiService';
 
 const CategoryManagement = () => {
-  const [categories, setCategories] = useState(CATEGORIES);
+  const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: '', color: '#ffffff' });
+  const [loading, setLoading] = useState(true);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await menuService.getCategories();
+      setCategories(response.results || []);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const colors = [
     { name: 'white', code: '#ffffff' },
@@ -22,20 +39,23 @@ const CategoryManagement = () => {
     );
   };
 
-  const handleCreateCategory = (e) => {
+  const handleCreateCategory = async (e) => {
     e.preventDefault();
     if (!formData.name) return;
 
-    const newCategory = {
-      id: Date.now(),
-      name: formData.name,
-      color: formData.color,
-      sequence: categories.length + 1
-    };
-
-    setCategories([...categories, newCategory]);
-    setFormData({ name: '', color: '#ffffff' });
-    setShowForm(false);
+    try {
+      await menuService.createCategory({
+        name: formData.name,
+        color: formData.color,
+        sequence: categories.length + 1
+      });
+      setFormData({ name: '', color: '#ffffff' });
+      setShowForm(false);
+      fetchCategories();
+    } catch (error) {
+      console.error("Failed to create category:", error);
+      alert("Failed to create category: " + (error.message || "Unknown error"));
+    }
   };
 
   const handleDelete = (id) => {
