@@ -1,0 +1,82 @@
+# =========================
+# Python / Django
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.pot
+*.pyc
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Django stuff
+db.sqlite3
+media/
+staticfiles/
+local_settings.py
+.env
+
+# =========================
+# Node / React / Vite
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite
+dist/
+.vite/
+
+# =========================
+# Tailwind
+# =========================
+.tailwind-cache/
+
+# =========================
+# Build & cache
+# =========================
+.cache/
+.parcel-cache/
+.eslintcache
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =========================
+# IDE / Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Coverage / Tests
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Environment / Secrets
+# =========================
+.env.*
+!.env.example
