@@ -80,3 +80,7 @@ htmlcov/
 # =========================
 .env.*
 !.env.example
+POS Hackathon.excalidraw
+POS Hackathon.pdf
+POS Hackathon.png
+apis for admin.txt
