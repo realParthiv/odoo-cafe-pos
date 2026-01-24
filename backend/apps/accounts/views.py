@@ -73,9 +73,13 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request):
+        email = request.data.get('email', 'unknown')
+        logger.debug(f"Login attempt started for: {email}")
+        
         serializer = LoginSerializer(data=request.data, context={'request': request})
         
         if not serializer.is_valid():
+            logger.warning(f"Login failed for {email}: {serializer.errors}")
             return APIResponse.error(
                 message='Login failed',
                 errors=serializer.errors,
@@ -91,10 +95,10 @@ class LoginView(APIView):
         # Generate tokens
         refresh = RefreshToken.for_user(user)
         
-        # Get last session info (will be implemented in sessions app)
+        # Get last session info
         last_session_info = self._get_last_session_info(user)
         
-        logger.info(f"User logged in: {user.email}")
+        logger.info(f"User successfully logged in: {user.email} (Role: {user.role})")
         
         return APIResponse.success(
             data={
@@ -111,31 +115,33 @@ class LoginView(APIView):
     def _get_last_session_info(self, user):
         """
         Get last POS session info for the user.
-        Returns None if sessions app not yet implemented.
         """
         try:
             from apps.sessions.models import POSSession
             last_session = POSSession.objects.filter(
-                user=user
-            ).order_by('-opened_at').first()
+                cashier=user
+            ).order_by('-start_time').first()
             
             if last_session:
                 last_order = last_session.orders.order_by('-created_at').first()
+                # Aggregate total sales
+                total_sales = sum(o.total_amount for o in last_session.orders.filter(status='completed'))
+                
                 return {
                     'session_number': last_session.session_number,
                     'status': last_session.status,
-                    'opened_at': last_session.opened_at.isoformat(),
-                    'closed_at': last_session.closed_at.isoformat() if last_session.closed_at else None,
-                    'total_orders': last_session.total_orders,
-                    'total_sales': str(last_session.total_sales),
+                    'opened_at': last_session.start_time.isoformat(),
+                    'closed_at': last_session.end_time.isoformat() if last_session.end_time else None,
+                    'total_orders': last_session.orders.count(),
+                    'total_sales': str(total_sales),
                     'last_sale': {
                         'order_number': last_order.order_number,
                         'total_amount': str(last_order.total_amount),
                         'created_at': last_order.created_at.isoformat(),
                     } if last_order else None
                 }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Error fetching last session info: {e}")
         return None
 
 
@@ -465,17 +471,29 @@ Best regards,
 Café POS Team
         """
         
+        logger.debug(f"Attempting to send invitation email to {invitation.email} using host {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+        logger.debug(f"Sender: {settings.DEFAULT_FROM_EMAIL}, Account: {settings.EMAIL_HOST_USER}")
+
         try:
-            send_mail(
+            sent_count = send_mail(
                 subject=subject,
                 message=message,
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[invitation.email],
                 fail_silently=False,
             )
+            if sent_count:
+                logger.info(f"Email system reported success for {invitation.email} (sent_count={sent_count})")
+            else:
+                logger.warning(f"Email system reported 0 messages sent for {invitation.email}")
+                
         except Exception as e:
-            logger.error(f"Failed to send invitation email to {invitation.email}: {e}")
-            # Don't raise - invitation is still created
+            logger.error(
+                f"SMTP Failure while sending to {invitation.email}: {str(e)}",
+                exc_info=True
+            )
+            # We log it but don't crash the request so the staff record exists
+            # The admin can 'resend' later once SMTP is fixed.
 
 
 class VerifyTokenView(APIView):
@@ -488,9 +506,11 @@ class VerifyTokenView(APIView):
     permission_classes = [AllowAny]
     
     def get(self, request, token):
+        logger.debug(f"Token verification attempt. Token: {token}")
         try:
             invitation = StaffInvitation.objects.get(token=token)
         except StaffInvitation.DoesNotExist:
+            logger.warning(f"Verification failure: Token {token} not found in database.")
             return APIResponse.error(
                 message='Invalid invitation token',
                 error_code='INVALID_TOKEN',
@@ -533,11 +553,23 @@ class StaffSetPasswordView(APIView):
     permission_classes = [AllowAny]
     
     def post(self, request):
+        logger.debug(f"Staff set-password attempt: {request.data}")
         serializer = StaffSetPasswordSerializer(data=request.data)
         
         if not serializer.is_valid():
+            logger.warning(f"Staff set-password validation failed: {serializer.errors}")
+            # Get the first error message for a cleaner response
+            error_msg = 'Validation failed'
+            if serializer.errors:
+                first_field = next(iter(serializer.errors))
+                first_error = serializer.errors[first_field]
+                if isinstance(first_error, list):
+                    error_msg = str(first_error[0])
+                else:
+                    error_msg = str(first_error)
+
             return APIResponse.error(
-                message='Validation failed',
+                message=error_msg,
                 errors=serializer.errors,
                 error_code='VALIDATION_ERROR'
             )
