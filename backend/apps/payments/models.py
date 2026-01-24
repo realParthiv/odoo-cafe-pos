@@ -13,6 +13,7 @@ class PaymentMethod(models.Model):
 
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=50, unique=True)
+    code = models.CharField(max_length=50, unique=True, blank=True, null=True, help_text='Unique code identifier (e.g., razorpay, cash, upi)')
     type = models.CharField(max_length=20, choices=MethodType.choices, default=MethodType.CASH)
     is_active = models.BooleanField(default=True)
 
@@ -34,7 +35,7 @@ class Payment(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     
     cashier_upi = models.CharField(max_length=100, blank=True, help_text="UPI ID of the cashier who processed this")
-    transaction_id = models.CharField(max_length=100, blank=True)
+    transaction_id = models.CharField(max_length=100, blank=True, null=True, unique=True, help_text="External payment gateway transaction ID (Razorpay payment_id, etc.)")
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.COMPLETED)
     

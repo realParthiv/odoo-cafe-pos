@@ -564,7 +564,17 @@ export const paymentService = {
     }
   },
 
-  // 3. Verify Razorpay Payment
+  // 3. Create Razorpay Order
+  createRazorpayOrder: async (data) => {
+    try {
+      const response = await api.post("/api/payments/create-razorpay-order/", data);
+      return response.data;
+    } catch (error) {
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 4. Verify Razorpay Payment
   verifyPayment: async (data) => {
     try {
       const response = await api.post("/api/payments/verify/", data);

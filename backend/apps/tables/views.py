@@ -31,6 +31,42 @@ class FloorViewSet(viewsets.ModelViewSet):
             message="Floors retrieved successfully"
         )
 
+    @action(detail=False, methods=['get'])
+    def availability(self, request):
+        """
+        GET /api/tables/floors/availability/
+        List all floors with their occupancy status (is a cashier currently assigned?).
+        """
+        from apps.sessions.models import POSSession
+        floors = self.get_queryset()
+        data = []
+        
+        # Get active sessions mapped by floor_id
+        active_sessions = POSSession.objects.filter(
+            status=POSSession.Status.OPEN,
+            floor__isnull=False
+        ).select_related('cashier')
+        
+        floor_occupancy = {s.floor_id: s.cashier for s in active_sessions}
+        
+        for floor in floors:
+            occupant = floor_occupancy.get(floor.id)
+            data.append({
+                'id': floor.id,
+                'name': floor.name,
+                'number': floor.number,
+                'is_occupied': bool(occupant),
+                'occupied_by': {
+                    'id': occupant.id,
+                    'name': occupant.get_full_name() or occupant.email
+                } if occupant else None
+            })
+            
+        return APIResponse.success(
+            data=data,
+            message="Floor availability retrieved successfully"
+        )
+
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
@@ -116,6 +152,19 @@ class TableViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+        
+        # Filter tables by cashier's assigned floor (if they are a cashier)
+        user = request.user
+        if user.is_authenticated and user.role == 'cashier':
+            from apps.sessions.models import POSSession
+            # Get current active session
+            session = user.pos_sessions.filter(status=POSSession.Status.OPEN).first()
+            if session and session.floor:
+                # Restrict to this floor only
+                queryset = queryset.filter(floor=session.floor)
+            # If no session or no floor assigned (old logic), maybe show all or none?
+            # Sticking to "show all" if no session restriction found for backward compatibility or error
+        
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

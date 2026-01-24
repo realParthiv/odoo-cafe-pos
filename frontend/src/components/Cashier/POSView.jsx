@@ -111,75 +111,85 @@ const POSView = ({ selectedTable }) => {
       return;
     }
 
-    // Use Razorpay flow
-    await handleRazorpayPayment();
-  };
+    if (!selectedTable) {
+      alert("Please select a table first!");
+      return;
+    }
 
-  const handleRazorpayPayment = async () => {
     try {
-      // 1. Create Order & Get Razorpay Details
-      // User requested QR flow. We need a valid table_token.
-      const tableToken =
-        selectedTable.token || selectedTable.uuid || selectedTable.id;
+      // Step 1: Create Order on backend
+      let orderId = currentOrderId;
+      
+      if (!orderId) {
+        const orderData = {
+          table: selectedTable.id,
+          order_type: "dine_in",
+        };
+        
+        const orderResponse = await orderService.createOrder(orderData);
+        orderId = orderResponse.data?.id || orderResponse.id;
+        setCurrentOrderId(orderId);
 
-      const orderData = {
-        table_token: tableToken,
-        customer_name: "Cashier Guest",
-        customer_phone: "",
-        total_amount: calculateTotal(), // Explicitly send total
-        lines: cartItems.map((item) => ({
-          product: item.id,
-          variant: item.variant ? item.variant_id : null,
-          quantity: item.quantity,
-          unit_price: item.price,
-          notes: "",
-        })),
+        // Add order lines
+        for (const item of cartItems) {
+          await orderService.addOrderLine(orderId, {
+            product: item.id,
+            variant: item.variant_id || null,
+            quantity: item.quantity,
+            unit_price: item.price,
+          });
+        }
+      }
+
+      // Step 2: Create Razorpay Order
+      const totalAmount = calculateTotal();
+      const razorpayOrderData = {
+        order_id: orderId,
+        amount: totalAmount,
       };
 
-      const response = await orderService.createQrOrder(orderData);
+      const razorpayResponse = await paymentService.createRazorpayOrder(razorpayOrderData);
+      
+      // Backend wraps response in {success: true, data: {...}}
+      if (razorpayResponse && razorpayResponse.success && razorpayResponse.data) {
+        const razorpayData = razorpayResponse.data;
+        
+        // Step 3: Open Razorpay Checkout
+        const options = {
+          key: razorpayData.razorpay_key,
+          amount: razorpayData.amount, // Amount in paisa
+          currency: razorpayData.currency || "INR",
+          order_id: razorpayData.razorpay_order_id,
+          name: "Odoo Cafe",
+          description: `Order #${razorpayData.order_number}`,
+          image: "/vite.svg",
+          handler: async function (response) {
+            // Step 4: Verify Payment
+            await handlePaymentSuccess(response, orderId);
+          },
+          modal: {
+            ondismiss: function () {
+              console.log("Payment cancelled by user");
+              alert("Payment cancelled. Order is still in draft mode.");
+            },
+          },
+          theme: {
+            color: "#3b82f6",
+          },
+        };
 
-      if (response.status === "success") {
-        const data = response.data;
-        setCurrentOrderId(data.id);
-        initiateRazorpay(data);
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
       } else {
-        alert("Failed to create QR order: " + response.message);
+        throw new Error(razorpayResponse?.message || "Failed to create Razorpay order");
       }
     } catch (error) {
       console.error("Payment initiation failed:", error);
-      alert(
-        "Failed to initiate payment: " + (error.message || "Unknown error"),
-      );
+      alert("Failed to initiate payment: " + (error.message || "Unknown error"));
     }
   };
 
-  const initiateRazorpay = (orderData) => {
-    const options = {
-      key: orderData.razorpay_key,
-      amount: Math.round(parseFloat(orderData.total_amount) * 100),
-      currency: "INR",
-      order_id: orderData.razorpay_order_id,
-      name: "Odoo Cafe",
-      description: `Order #${orderData.order_number}`,
-      image: "/vite.svg", // Use app logo
-      handler: async function (response) {
-        await verifyRazorpayPayment(response, orderData);
-      },
-      modal: {
-        ondismiss: function () {
-          console.log("Payment cancelled");
-        },
-      },
-      theme: {
-        color: "#3b82f6", // Match app theme
-      },
-    };
-
-    const razorpay = new window.Razorpay(options);
-    razorpay.open();
-  };
-
-  const verifyRazorpayPayment = async (razorpayResponse, orderData) => {
+  const handlePaymentSuccess = async (razorpayResponse, orderId) => {
     try {
       const verifyData = {
         razorpay_order_id: razorpayResponse.razorpay_order_id,
@@ -189,18 +199,18 @@ const POSView = ({ selectedTable }) => {
 
       const response = await paymentService.verifyPayment(verifyData);
 
-      if (response.status === "success") {
-        alert("Payment Successful! Order sent to kitchen.");
+      if (response && response.success) {
+        alert("✅ Payment Successful!\n\nOrder sent to kitchen.");
         setCartItems([]);
         setCurrentOrderId(null);
+        // Refresh the page to reset the table selection
+        window.location.reload();
       } else {
-        alert("Payment verification failed: " + response.message);
+        alert("❌ Payment verification failed!\n\n" + (response.message || "Please contact support."));
       }
     } catch (error) {
       console.error("Verification error:", error);
-      alert(
-        "Payment verification error: " + (error.message || "Unknown error"),
-      );
+      alert("❌ Payment verification error!\n\n" + (error.message || "Please contact support."));
     }
   };
 

@@ -1,0 +1,40 @@
+# Generated migration file template
+# Run: python manage.py makemigrations payments
+# This will be auto-generated, but here's what it should contain:
+
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('payments', '0001_initial'),  # Replace with your last migration
+    ]
+
+    operations = [
+        # Add 'code' field to PaymentMethod
+        migrations.AddField(
+            model_name='paymentmethod',
+            name='code',
+            field=models.CharField(
+                blank=True,
+                help_text='Unique code identifier (e.g., razorpay, cash, upi)',
+                max_length=50,
+                null=True,
+                unique=True
+            ),
+        ),
+        
+        # Make transaction_id unique in Payment
+        migrations.AlterField(
+            model_name='payment',
+            name='transaction_id',
+            field=models.CharField(
+                blank=True,
+                help_text='External payment gateway transaction ID (Razorpay payment_id, etc.)',
+                max_length=100,
+                null=True,
+                unique=True
+            ),
+        ),
+    ]

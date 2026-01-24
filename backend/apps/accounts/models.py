@@ -122,6 +122,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         """Return the user's full name."""
         return f"{self.first_name} {self.last_name}".strip()
     
+    def get_full_name(self):
+        """Return the user's full name (method version for compatibility)."""
+        return self.full_name
+    
+    def get_short_name(self):
+        """Return the user's first name."""
+        return self.first_name
+    
     @property
     def is_admin(self):
         """Check if user is an admin/owner."""

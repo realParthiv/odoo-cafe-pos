@@ -7,7 +7,7 @@ class POSSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = POSSession
         fields = [
-            'id', 'session_number', 'cashier', 'cashier_name', 
+            'id', 'session_number', 'cashier', 'cashier_name', 'floor',
             'start_time', 'end_time', 'starting_cash', 
             'closing_cash', 'status', 'notes'
         ]
@@ -15,6 +15,7 @@ class POSSessionSerializer(serializers.ModelSerializer):
 
 class POSSessionOpenSerializer(serializers.Serializer):
     starting_cash = serializers.DecimalField(max_digits=12, decimal_places=2, required=True)
+    floor_id = serializers.IntegerField(required=True, help_text="ID of the floor to assign")
 
 class POSSessionCloseSerializer(serializers.Serializer):
     closing_cash = serializers.DecimalField(max_digits=12, decimal_places=2, required=True)

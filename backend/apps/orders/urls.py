@@ -8,6 +8,7 @@ router = DefaultRouter()
 router.register(r'', views.OrderViewSet)
 
 urlpatterns = [
+    path('qr/info/', views.QRInfoView.as_view(), name='qr_info'),
     path('qr/', views.QROrderView.as_view(), name='qr_order'),
     
     # Dashboard stats (Admin only)

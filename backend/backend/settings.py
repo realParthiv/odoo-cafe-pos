@@ -71,6 +71,50 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'backend.urls'
 
+
+# =============================================================================
+# CORS CONFIGURATION
+# =============================================================================
+
+# For development: Allow all origins
+# ⚠️ In production, restrict to specific origins only!
+CORS_ORIGIN_ALLOW_ALL = config('CORS_ORIGIN_ALLOW_ALL', default=True, cast=bool)
+
+# Specific allowed origins (used when CORS_ORIGIN_ALLOW_ALL is False)
+CORS_ALLOWED_ORIGINS = config(
+    'CORS_ALLOWED_ORIGINS',
+    default='http://localhost:5173,http://127.0.0.1:5173',
+    cast=Csv()
+)
+
+# Allow credentials (cookies, authorization headers, etc.)
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow all methods
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Allow all headers
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'ngrok-skip-browser-warning',
+]
+
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -291,6 +335,11 @@ EMAIL_FAIL_SILENTLY = False
 
 STAFF_INVITATION_EXPIRY_DAYS = 7
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
+
+# Razorpay Configuration - Direct Values
+RAZORPAY_KEY_ID = 'rzp_test_Ruxoff4VYGgcs7'
+RAZORPAY_KEY_SECRET = 'MEEFPYXvtbrJuJO6pcZoFXXp'
+RAZORPAY_WEBHOOK_SECRET = 'sample_webhook_secret'
 
 
 # =============================================================================

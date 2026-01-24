@@ -16,6 +16,13 @@ class POSSession(models.Model):
         on_delete=models.CASCADE, 
         related_name='pos_sessions'
     )
+    floor = models.ForeignKey(
+        'tables.Floor', 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='sessions'
+    )
     start_time = models.DateTimeField(default=timezone.now)
     end_time = models.DateTimeField(null=True, blank=True)
     

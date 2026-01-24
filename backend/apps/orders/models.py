@@ -4,8 +4,10 @@ from apps.menu.models import Product, ProductVariant
 from apps.tables.models import Table
 from apps.sessions.models import POSSession
 from django.utils import timezone
+from decimal import Decimal
 import string
 import random
+import uuid
 
 class Order(models.Model):
     """
@@ -23,6 +25,7 @@ class Order(models.Model):
 
 
     id = models.BigAutoField(primary_key=True)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, null=True, db_index=True)
     order_number = models.CharField(max_length=20, unique=True, editable=False)
     
     session = models.ForeignKey(POSSession, on_delete=models.CASCADE, related_name='orders')
@@ -47,6 +50,11 @@ class Order(models.Model):
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     discount_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
+    # Razorpay tracking
+    razorpay_order_id = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=255, blank=True, null=True)
     
     notes = models.TextField(blank=True)
     
@@ -76,10 +84,14 @@ class Order(models.Model):
     def calculate_totals(self):
         """Recalculate order totals from lines."""
         lines = self.lines.all()
-        self.subtotal = sum(line.total_price for line in lines)
-        self.tax_amount = sum(line.tax_amount for line in lines)
-        self.total_amount = self.subtotal + self.tax_amount - self.discount_amount
-        self.save()
+        subtotal = sum((line.total_price or Decimal('0')) for line in lines) or Decimal('0')
+        tax = sum((line.tax_amount or Decimal('0')) for line in lines) or Decimal('0')
+        discount = Decimal(self.discount_amount or 0)
+
+        self.subtotal = subtotal
+        self.tax_amount = tax
+        self.total_amount = subtotal + tax - discount
+        self.save(update_fields=['subtotal', 'tax_amount', 'total_amount'])
 
 
 class OrderLine(models.Model):

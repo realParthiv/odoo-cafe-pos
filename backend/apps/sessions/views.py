@@ -56,9 +56,25 @@ class OpenSessionView(views.APIView):
                 error_code="VALIDATION_ERROR"
             )
             
+        floor_id = serializer.validated_data.get('floor_id')
+        
+        # Check if floor is already occupied by SOMEONE ELSE
+        if floor_id:
+            occupied_session = POSSession.objects.filter(
+                floor_id=floor_id,
+                status=POSSession.Status.OPEN
+            ).exclude(cashier=request.user).first()
+            
+            if occupied_session:
+                return APIResponse.error(
+                    message=f"Floor is already occupied by {occupied_session.cashier.get_full_name() or occupied_session.cashier.email}.",
+                    error_code="FLOOR_OCCUPIED"
+                )
+
         session = POSSession.objects.create(
             cashier=request.user,
             starting_cash=serializer.validated_data['starting_cash'],
+            floor_id=floor_id,
             status=POSSession.Status.OPEN
         )
         
