@@ -34,6 +34,8 @@ const StaffManagement = ({ role }) => {
   useEffect(() => {
     // Update inviteData role when prop changes
     setInviteData((prev) => ({ ...prev, role: role || "cashier" }));
+    setSuccess("");
+    setError("");
     fetchData();
   }, [activeTab, role]);
 
@@ -51,8 +53,8 @@ const StaffManagement = ({ role }) => {
         setInvitations(data.data?.invitations || data.data || []);
       }
     } catch (err) {
-      setError("Failed to fetch data");
       console.error(err);
+      // Don't show error on initial fetch if it's just empty
     } finally {
       setLoading(false);
     }
@@ -71,11 +73,20 @@ const StaffManagement = ({ role }) => {
     try {
       // Clean up payload: remove empty strings for optional fields
       const payload = { ...inviteData };
+
+      if (payload.role === "cashier" && !payload.upi_id) {
+        setError("UPI ID is required for Cashiers");
+        setInviteLoading(false);
+        return;
+      }
+
       if (!payload.upi_id) delete payload.upi_id;
 
       const response = await authService.inviteStaff(payload);
       if (response.success) {
-        setSuccess(`Invitation sent to ${inviteData.email}`);
+        setSuccess(
+          `Invitation sent to ${inviteData.email} as ${inviteData.role}`,
+        );
         setInviteData({
           first_name: "",
           last_name: "",
@@ -107,7 +118,9 @@ const StaffManagement = ({ role }) => {
       await authService.resendInvitation(id);
       alert("Invitation resent successfully");
     } catch (err) {
-      alert("Failed to resend invitation");
+      console.error("Resend Error:", err);
+      const errorMsg = err.message || "Failed to resend invitation";
+      alert(errorMsg);
     }
   };
 
@@ -302,13 +315,14 @@ const StaffManagement = ({ role }) => {
               {inviteData.role !== "kitchen" && (
                 <div>
                   <label className="block text-xs font-semibold mb-1 text-gray-600">
-                    UPI ID (Optional)
+                    UPI ID {inviteData.role === "cashier" ? "" : "(Optional)"}
                   </label>
                   <input
                     type="text"
                     name="upi_id"
                     value={inviteData.upi_id}
                     onChange={handleInviteChange}
+                    required={inviteData.role === "cashier"}
                     className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2"
                     style={{
                       borderColor: theme.colors.border,

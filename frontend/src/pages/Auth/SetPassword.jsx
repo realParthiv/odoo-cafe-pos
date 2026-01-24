@@ -37,8 +37,12 @@ const SetPassword = () => {
         setUserData(response.data);
       }
     } catch (err) {
-      console.log(err?.response?.data);
-      setError(err.message || "Invalid or expired token");
+      console.error("Token Verification Error:", err);
+      if (err.error_code === "INVITATION_USED") {
+        setError("This invitation has already been used. Please login.");
+      } else {
+        setError(err.message || "Invalid or expired token");
+      }
     } finally {
       setVerifying(false);
       setLoading(false);
@@ -74,7 +78,6 @@ const SetPassword = () => {
 
       if (response.success) {
         handleLoginSuccess(response.data);
-        // Redirect based on role
         const role = response.data.user.role;
         if (role === "admin") navigate("/admin");
         else if (role === "cashier") navigate("/cashier");
@@ -84,7 +87,6 @@ const SetPassword = () => {
     } catch (err) {
       console.error("Set Password Error:", err);
       if (err.errors) {
-        // Extract and join all error messages
         const errorMsg = Object.values(err.errors).flat().join(", ");
         setError(errorMsg);
       } else {

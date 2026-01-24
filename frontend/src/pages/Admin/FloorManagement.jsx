@@ -9,6 +9,8 @@ import {
   Loader2,
   Armchair,
   UtensilsCrossed,
+  QrCode,
+  Download,
 } from "lucide-react";
 import { theme } from "../../theme/theme";
 import { tableService } from "../../services/apiService";
@@ -19,14 +21,18 @@ const FloorManagement = () => {
   const [selectedFloorId, setSelectedFloorId] = useState(null);
   const [showAddFloor, setShowAddFloor] = useState(false);
   const [showAddTable, setShowAddTable] = useState(false);
-
-  // Form States
   const [newFloorName, setNewFloorName] = useState("");
   const [newTableData, setNewTableData] = useState({
     name: "",
     seats: 4,
     shape: "square",
   });
+
+  // QR Modal State
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrImageUrl, setQrImageUrl] = useState(null);
+  const [selectedQrTable, setSelectedQrTable] = useState(null);
+  const [qrLoading, setQrLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -36,13 +42,21 @@ const FloorManagement = () => {
         tableService.getTables(),
       ]);
 
-      const floorsList = floorsResponse.data || [];
-      const tablesList = tablesResponse.data || [];
+      const floorsList =
+        floorsResponse.data?.floors ||
+        floorsResponse.results ||
+        floorsResponse.data ||
+        [];
+      const tablesList =
+        tablesResponse.data?.tables ||
+        tablesResponse.results ||
+        tablesResponse.data ||
+        [];
 
-      // Merge tables into floors
       const mergedFloors = floorsList.map((floor) => ({
         id: floor.id,
         name: floor.name,
+        number: floor.number,
         tables: tablesList
           .filter((t) => t.floor === floor.id)
           .map((t) => ({
@@ -55,7 +69,6 @@ const FloorManagement = () => {
 
       setFloors(mergedFloors);
 
-      // Set initial selected floor if none selected or current selection invalid
       if (mergedFloors.length > 0) {
         if (
           !selectedFloorId ||
@@ -91,10 +104,15 @@ const FloorManagement = () => {
 
       setNewFloorName("");
       setShowAddFloor(false);
-      fetchData(); // Refresh data
+      fetchData();
     } catch (error) {
       console.error("Failed to create floor:", error);
-      alert("Failed to create floor. Please try again.");
+      if (error.errors) {
+        const errorMsg = Object.values(error.errors).flat().join("\n");
+        alert(errorMsg);
+      } else {
+        alert(error.message || "Failed to create floor. Please try again.");
+      }
     }
   };
 
@@ -130,7 +148,12 @@ const FloorManagement = () => {
       fetchData(); // Refresh data
     } catch (error) {
       console.error("Failed to create table:", error);
-      alert("Failed to create table. Please try again.");
+      if (error.errors) {
+        const errorMsg = Object.values(error.errors).flat().join("\n");
+        alert(errorMsg);
+      } else {
+        alert(error.message || "Failed to create table. Please try again.");
+      }
     }
   };
 
@@ -146,13 +169,43 @@ const FloorManagement = () => {
     }
   };
 
-  if (loading && floors.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
-  }
+  const handleViewQr = async (e, table) => {
+    e.stopPropagation();
+    setSelectedQrTable(table);
+    setShowQrModal(true);
+    setQrLoading(true);
+    setQrImageUrl(null);
+
+    try {
+      const blob = await tableService.getQrCode(table.id);
+      const url = URL.createObjectURL(blob);
+      setQrImageUrl(url);
+    } catch (error) {
+      console.error("Failed to load QR code:", error?.response);
+      const errorMsg = error?.response?.data || "Unknown error";
+      //   alert(`Failed to load QR code: ${errorMsg}`);
+      setShowQrModal(false);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async (e, table) => {
+    e.stopPropagation();
+    try {
+      const blob = await tableService.downloadQrPdf(table.id);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `table_${table.name}_qr.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+      alert("Failed to download PDF");
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
@@ -194,11 +247,11 @@ const FloorManagement = () => {
               key={floor.id}
               onClick={() => setSelectedFloorId(floor.id)}
               className={`
-                group relative px-6 py-3 rounded-lg cursor-pointer transition-all duration-200 flex items-center min-w-[140px] justify-center border
+                group relative px-6 py-2.5 rounded-full cursor-pointer transition-all duration-300 flex items-center min-w-[120px] justify-center border font-medium select-none
                 ${
                   selectedFloorId === floor.id
-                    ? "bg-gray-900 text-white border-gray-900 shadow-md"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                    ? "bg-gray-900 text-white border-gray-900 shadow-lg shadow-gray-900/20 transform scale-105"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
                 }
               `}
             >
@@ -229,7 +282,7 @@ const FloorManagement = () => {
 
           <button
             onClick={() => setShowAddFloor(true)}
-            className="px-4 py-3 text-gray-500 hover:text-blue-600 hover:bg-blue-50 border border-dashed border-gray-300 hover:border-blue-300 rounded-lg transition-all duration-200 flex items-center"
+            className="px-4 py-3 text-gray-500 hover:text-blue-600 hover:bg-blue-50 border border-dashed border-gray-300 hover:border-blue-300 rounded-lg transition-all duration-200 flex items-center whitespace-nowrap"
             title="Add New Floor"
           >
             <Plus className="w-5 h-5 mr-2" />
@@ -239,7 +292,13 @@ const FloorManagement = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden flex flex-col relative">
+      <div
+        className="flex-1 overflow-hidden flex flex-col relative bg-gray-50/50"
+        style={{
+          backgroundImage: "radial-gradient(#cbd5e1 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      >
         {floors.length === 0 ? (
           // Empty State - No Floors
           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-gray-50/50">
@@ -313,38 +372,55 @@ const FloorManagement = () => {
                   {selectedFloor?.tables.map((table) => (
                     <div
                       key={table.id}
-                      className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 relative group hover:shadow-lg hover:border-blue-200 transition-all cursor-pointer transform hover:-translate-y-1"
+                      className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 p-4 relative group hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
                     >
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20 flex space-x-1">
+                        <button
+                          onClick={(e) => handleViewQr(e, table)}
+                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                          title="View QR Code"
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDownloadPdf(e, table)}
+                          className="p-2 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded-full transition-colors"
+                          title="Download PDF"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteTable(selectedFloorId, table.id);
                           }}
                           className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                          title="Delete Table"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
 
-                      <div className="flex flex-col items-center justify-center py-8">
+                      <div className="flex flex-col items-center justify-center py-6">
                         <div
                           className={`
-                          w-24 h-24 mb-5 flex items-center justify-center border-2 text-gray-400 bg-gray-50 transition-colors group-hover:border-blue-500 group-hover:text-blue-500
+                          mb-4 flex items-center justify-center shadow-sm transition-all duration-300
                           ${
-                            table.shape === "round"
-                              ? "rounded-full"
-                              : "rounded-2xl"
+                            table.shape === "circle"
+                              ? "w-24 h-24 rounded-full"
+                              : table.shape === "rectangle"
+                                ? "w-32 h-20 rounded-xl"
+                                : "w-24 h-24 rounded-2xl"
                           }
-                          ${table.shape === "rectangle" ? "w-32" : ""}
+                          bg-slate-100 border-2 border-slate-300 text-slate-600 group-hover:border-blue-500 group-hover:text-blue-600 group-hover:bg-blue-50
                         `}
                         >
                           <span className="font-bold text-2xl">
                             {table.name}
                           </span>
                         </div>
-                        <div className="flex items-center text-gray-500 text-sm bg-gray-100 px-4 py-1.5 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                          <Users className="w-3 h-3 mr-2" />
+                        <div className="flex items-center text-gray-500 text-xs bg-gray-100 px-3 py-1 rounded-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                          <Users className="w-3 h-3 mr-1.5" />
                           <span className="font-medium">
                             {table.seats} Seats
                           </span>
@@ -379,7 +455,7 @@ const FloorManagement = () => {
                   value={newFloorName}
                   onChange={(e) => setNewFloorName(e.target.value)}
                   className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="e.g. Main Hall, Patio, Rooftop"
+                  placeholder="e.g. 1, 2, 3"
                   autoFocus
                 />
               </div>
@@ -439,7 +515,7 @@ const FloorManagement = () => {
                     setNewTableData({ ...newTableData, name: e.target.value })
                   }
                   className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="e.g. T-12, Table 5"
+                  placeholder={`e.g. ${selectedFloor?.number || 1}01, ${selectedFloor?.number || 1}02`}
                 />
               </div>
 
@@ -481,7 +557,7 @@ const FloorManagement = () => {
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all appearance-none bg-white"
                   >
                     <option value="square">Square</option>
-                    <option value="round">Round</option>
+                    <option value="circle">Circle</option>
                     <option value="rectangle">Rectangle</option>
                   </select>
                 </div>
@@ -504,6 +580,47 @@ const FloorManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View QR Modal */}
+      {showQrModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 m-4 flex flex-col items-center">
+            <div className="w-full flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-gray-900">
+                Table {selectedQrTable?.name} QR
+              </h3>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="w-64 h-64 bg-gray-50 rounded-xl flex items-center justify-center mb-6 border border-gray-100">
+              {qrLoading ? (
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              ) : qrImageUrl ? (
+                <img
+                  src={qrImageUrl}
+                  alt="Table QR Code"
+                  className="w-full h-full object-contain rounded-xl"
+                />
+              ) : (
+                <p className="text-gray-400 text-sm">Failed to load QR</p>
+              )}
+            </div>
+
+            <button
+              onClick={(e) => handleDownloadPdf(e, selectedQrTable)}
+              className="w-full py-3 text-white rounded-xl font-bold hover:opacity-90 shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center"
+              style={{ backgroundColor: theme.colors.primary }}
+            >
+              <Download className="w-5 h-5 mr-2" /> Download PDF
+            </button>
           </div>
         </div>
       )}
