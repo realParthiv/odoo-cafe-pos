@@ -111,12 +111,15 @@ class LoginSerializer(serializers.Serializer):
                 password=password
             )
             
+            from .views import logger
             if not user:
+                logger.warning(f"Login validation error: Invalid email or password for {email}")
                 raise serializers.ValidationError({
                     'detail': 'Invalid email or password.'
                 })
             
             if not user.is_active:
+                logger.warning(f"Login validation error: Account deactivated for {email}")
                 raise serializers.ValidationError({
                     'detail': 'Account is deactivated. Contact administrator.'
                 })
@@ -156,7 +159,7 @@ class ChangePasswordSerializer(serializers.Serializer):
     )
     new_password = serializers.CharField(
         write_only=True,
-        min_length=8,
+        min_length=6,
         style={'input_type': 'password'}
     )
     confirm_new_password = serializers.CharField(
@@ -294,12 +297,12 @@ class VerifyTokenSerializer(serializers.Serializer):
 class StaffSetPasswordSerializer(serializers.Serializer):
     """
     Serializer for staff to set password after token verification.
-    Creates the actual user account.
+    Creates the actual user account using data from the invitation.
     """
     token = serializers.CharField()
     password = serializers.CharField(
         write_only=True,
-        min_length=8,
+        min_length=6,
         style={'input_type': 'password'}
     )
     confirm_password = serializers.CharField(
@@ -307,23 +310,21 @@ class StaffSetPasswordSerializer(serializers.Serializer):
         style={'input_type': 'password'}
     )
     
-    # Optional - staff can override if admin didn't provide
-    first_name = serializers.CharField(max_length=100, required=False)
-    last_name = serializers.CharField(max_length=100, required=False)
-    phone = serializers.CharField(max_length=17, required=False, allow_blank=True)
-    upi_id = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
-    
     def validate_token(self, value):
         """Validate the invitation token."""
+        from .views import logger
         try:
             invitation = StaffInvitation.objects.get(token=value)
         except StaffInvitation.DoesNotExist:
+            logger.error(f"Set-password failure: Token {value} not found.")
             raise serializers.ValidationError('Invalid invitation token.')
         
         if invitation.is_used:
+            logger.error(f"Set-password failure: Token {value} already used.")
             raise serializers.ValidationError('This invitation has already been used.')
         
         if invitation.is_expired:
+            logger.error(f"Set-password failure: Token {value} expired.")
             raise serializers.ValidationError('This invitation has expired.')
         
         # Store invitation for later use
@@ -332,40 +333,38 @@ class StaffSetPasswordSerializer(serializers.Serializer):
     
     def validate_password(self, value):
         """Validate password strength."""
+        from .views import logger
         try:
             validate_password(value)
         except ValidationError as e:
+            logger.warning(f"Set-password failure: Password strength requirements not met: {e.messages}")
             raise serializers.ValidationError(list(e.messages))
         return value
     
     def validate(self, attrs):
         """Ensure passwords match."""
+        from .views import logger
         if attrs.get('password') != attrs.get('confirm_password'):
+            logger.warning("Set-password failure: Passwords do not match.")
             raise serializers.ValidationError({
                 'confirm_password': 'Passwords do not match.'
             })
         return attrs
     
     def create(self, validated_data):
-        """Create the staff user account."""
+        """Create the staff user account using invitation data."""
         from django.utils import timezone
         
         invitation = self.invitation
         
-        # Use provided data or fall back to invitation data
-        first_name = validated_data.get('first_name') or invitation.first_name or 'Staff'
-        last_name = validated_data.get('last_name') or invitation.last_name or 'User'
-        phone = validated_data.get('phone') or invitation.phone
-        upi_id = validated_data.get('upi_id') or invitation.upi_id
-        
-        # Create user
+        # Create user using data already present in the invitation
         user = User.objects.create_user(
             email=invitation.email,
             password=validated_data['password'],
-            first_name=first_name,
-            last_name=last_name,
-            phone=phone,
-            upi_id=upi_id,
+            first_name=invitation.first_name or 'Staff',
+            last_name=invitation.last_name or 'User',
+            phone=invitation.phone,
+            upi_id=invitation.upi_id,
             role=invitation.role,
             is_email_verified=True,
             is_active=True,

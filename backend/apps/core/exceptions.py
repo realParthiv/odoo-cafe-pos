@@ -30,11 +30,23 @@ def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
     
     # Log the exception
-    logger.error(
-        f"Exception in {context.get('view', 'Unknown')}: {str(exc)}",
-        exc_info=True,
-        extra={'request': context.get('request')}
-    )
+    if response is not None and response.status_code in [401, 403]:
+        # Log auth/permission errors as warnings without full traceback
+        user = context.get('request').user if context.get('request') else 'Anonymous'
+        method = context.get('request').method if context.get('request') else 'Unknown'
+        path = context.get('request').path if context.get('request') else 'Unknown'
+        
+        logger.warning(
+            f"Permission/Auth denied in {context.get('view').__class__.__name__ if hasattr(context.get('view'), '__class__') else 'Unknown'}: "
+            f"{str(exc)} | User: {user} | {method} {path}"
+        )
+    else:
+        # Log unexpected errors as ERROR with traceback
+        logger.error(
+            f"Exception in {context.get('view', 'Unknown')}: {str(exc)}",
+            exc_info=True,
+            extra={'request': context.get('request')}
+        )
     
     if response is not None:
         # Customize the response format
