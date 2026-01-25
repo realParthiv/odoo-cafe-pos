@@ -141,11 +141,13 @@ const Kitchen = () => {
   const moveOrder = async (orderId, newStatus) => {
     if (!newStatus) return;
 
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find((o) => o.id === orderId);
     if (!order) return;
 
     // Optimistic Update
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    setOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
+    );
 
     // Map frontend column to backend status: sent_to_kitchen, prepared, completed
     const backendStatus = newStatus === 'to_cook' ? 'sent_to_kitchen'
@@ -162,7 +164,7 @@ const Kitchen = () => {
 
   const toggleItemCompletion = async (orderId, idx, e) => {
     e.stopPropagation();
-    const order = orders.find(o => o.id === orderId);
+    const order = orders.find((o) => o.id === orderId);
     if (!order) return;
     
     // Calculate new state for this item
@@ -210,9 +212,24 @@ const Kitchen = () => {
   };
 
   const Columns = [
-    { id: "to_cook", label: "To Cook", color: theme.colors.status.danger, bg: "#FFF5F5" },
-    { id: "preparing", label: "Preparing", color: theme.colors.status.warning, bg: "#FFF9E6" },
-    { id: "ready", label: "Ready", color: theme.colors.status.success, bg: "#E8F5E9" }
+    {
+      id: "to_cook",
+      label: "To Cook",
+      color: theme.colors.status.danger,
+      bg: "#FFF5F5",
+    },
+    {
+      id: "preparing",
+      label: "Preparing",
+      color: theme.colors.status.warning,
+      bg: "#FFF9E6",
+    },
+    {
+      id: "ready",
+      label: "Ready",
+      color: theme.colors.status.success,
+      bg: "#E8F5E9",
+    },
   ];
 
   return (
@@ -223,8 +240,16 @@ const Kitchen = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-1" style={{ color: theme.colors.text.primary }}>Kitchen Display</h1>
-          <p className="text-sm font-medium" style={{ color: theme.colors.text.secondary }}>
+          <h1
+            className="text-3xl font-bold mb-1"
+            style={{ color: theme.colors.text.primary }}
+          >
+            Kitchen Display
+          </h1>
+          <p
+            className="text-sm font-medium"
+            style={{ color: theme.colors.text.secondary }}
+          >
             Live Order Management
           </p>
         </div>
@@ -235,7 +260,7 @@ const Kitchen = () => {
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: col.color }}></div>
               <span className="text-sm font-semibold text-gray-600">{col.label}:</span>
               <span className="text-sm font-bold text-gray-900">
-                {orders.filter(o => o.status === col.id).length}
+                {orders.filter((o) => o.status === col.id).length}
               </span>
             </div>
           ))}
@@ -251,44 +276,63 @@ const Kitchen = () => {
       {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center gap-2 shadow-sm">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+              clipRule="evenodd"
+            />
+          </svg>
           <span>{error}</span>
-          <button onClick={fetchOrders} className="ml-auto text-sm font-bold underline hover:text-red-800">Retry</button>
+          <button
+            onClick={fetchOrders}
+            className="ml-auto text-sm font-bold underline hover:text-red-800"
+          >
+            Retry
+          </button>
         </div>
       )}
 
       {/* Kanban Board */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
-        {Columns.map(col => (
+        {Columns.map((col) => (
           <div
             key={col.id}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, col.id)}
             className="flex flex-col rounded-lg overflow-hidden transition-colors border max-h-full bg-white shadow-sm"
             style={{
-              borderColor: theme.colors.border
+              borderColor: theme.colors.border,
             }}
           >
             {/* Column Header */}
             <div
               className="px-4 py-3 flex items-center justify-between bg-gray-50 border-b"
-              style={{ borderTop: `3px solid ${col.color}`, borderColor: theme.colors.border }}
+              style={{
+                borderTop: `3px solid ${col.color}`,
+                borderColor: theme.colors.border,
+              }}
             >
-              <h2 className="font-bold text-lg" style={{ color: theme.colors.text.primary }}>{col.label}</h2>
+              <h2
+                className="font-bold text-lg"
+                style={{ color: theme.colors.text.primary }}
+              >
+                {col.label}
+              </h2>
               <span
                 className="text-xs font-bold px-2 py-0.5 rounded-lg text-white"
                 style={{ backgroundColor: col.color }}
               >
-                {orders.filter(o => o.status === col.id).length}
+                {orders.filter((o) => o.status === col.id).length}
               </span>
             </div>
 
             {/* Cards Container */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
               {orders
-                .filter(o => o.status === col.id)
-                .map(order => {
-                  const allItemsDone = order.items.every(i => i.completed);
+                .filter((o) => o.status === col.id)
+                .map((order) => {
+                  const allItemsDone = order.items.every((i) => i.completed);
                   return (
                     <div
                       key={order.id}
@@ -296,9 +340,9 @@ const Kitchen = () => {
                       onDragStart={(e) => handleDragStart(e, order.id)}
                       className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-move group relative border border-gray-200"
                       style={{
-                        borderLeftWidth: '3px',
+                        borderLeftWidth: "3px",
                         borderLeftColor: col.color,
-                        opacity: draggedOrderId === order.id ? 0.5 : 1
+                        opacity: draggedOrderId === order.id ? 0.5 : 1,
                       }}
                     >
                       {/* Top Row: ID & Time */}
@@ -310,7 +354,10 @@ const Kitchen = () => {
                           <span className="text-xs font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
                             {order.time}
                           </span>
-                          <span className="text-xs font-bold mt-1" style={{ color: theme.colors.accent }}>
+                          <span
+                            className="text-xs font-bold mt-1"
+                            style={{ color: theme.colors.accent }}
+                          >
                             {order.table}
                           </span>
                         </div>
@@ -326,16 +373,24 @@ const Kitchen = () => {
                           order.items.map((item, idx) => (
                             <div
                               key={idx}
-                              onClick={(e) => toggleItemCompletion(order.id, idx, e)}
+                              onClick={(e) =>
+                                toggleItemCompletion(order.id, idx, e)
+                              }
                               className="flex justify-between items-center text-sm cursor-pointer hover:bg-gray-50 p-1 -mx-1 rounded"
                             >
                               <div className="flex items-center gap-2 overflow-hidden">
-                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.completed ? 'bg-green-400' : 'bg-gray-200'}`}></div>
-                                <span className={`truncate ${item.completed ? 'line-through text-gray-400' : 'text-gray-700 font-medium'}`}>
+                                <div
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.completed ? "bg-green-400" : "bg-gray-200"}`}
+                                ></div>
+                                <span
+                                  className={`truncate ${item.completed ? "line-through text-gray-400" : "text-gray-700 font-medium"}`}
+                                >
                                   {item.name}
                                 </span>
                               </div>
-                              <span className={`font-bold ml-2 ${item.completed ? 'text-gray-300' : 'text-gray-800'}`}>
+                              <span
+                                className={`font-bold ml-2 ${item.completed ? "text-gray-300" : "text-gray-800"}`}
+                              >
                                 x{item.qty}
                               </span>
                             </div>
@@ -349,9 +404,15 @@ const Kitchen = () => {
                           {allItemsDone ? "Wait Staff Notified" : "Preparing"}
                         </span>
                         {/* Optional Quick Move Button */}
-                        {col.id !== 'ready' && (
+                        {col.id !== "ready" && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); moveOrder(order.id, col.id === 'to_cook' ? 'preparing' : 'ready'); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              moveOrder(
+                                order.id,
+                                col.id === "to_cook" ? "preparing" : "ready",
+                              );
+                            }}
                             className="text-xs font-bold px-2 py-1 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"
                             style={{ backgroundColor: col.color }}
                           >
@@ -363,7 +424,7 @@ const Kitchen = () => {
                   );
                 })}
 
-              {orders.filter(o => o.status === col.id).length === 0 && (
+              {orders.filter((o) => o.status === col.id).length === 0 && (
                 <div className="h-24 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-sm font-medium italic bg-white">
                   Empty {col.label}
                 </div>
