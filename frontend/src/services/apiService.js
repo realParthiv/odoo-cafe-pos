@@ -540,20 +540,21 @@ export const ordersService = {
       const params = new URLSearchParams(filters);
       const url = `/api/kitchen/orders/?${params.toString()}`;
       const response = await api.get(url);
+      console.log("📥 Full API Response:", response);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
     }
   },
 
-  // 2. Update Line Status
-  updateLineStatus: async (orderId, lineId, status) => {
+  // 2. Update Status (Unified Endpoint for Order & Line Item)
+  updateStatus: async (orderId, payload) => {
     try {
-      const response = await api.patch(`/api/kitchen/orders/${orderId}/lines/${lineId}/status/`, {
-        status,
-      });
+      const response = await api.patch(`/api/kitchen/orders/${orderId}/update-status/`, payload);
+      console.log("✅ Status Updated:", response.data);
       return response.data;
     } catch (error) {
+      console.error("❌ Update Status Error:", error);
       throw error.response ? error.response.data : error;
     }
   },

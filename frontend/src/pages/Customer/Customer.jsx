@@ -8,9 +8,9 @@ const SummaryView = ({ cart, orderTotal }) => {
   return (
     <div className="flex flex-col h-full animate-fadeIn">
       {/* Header */}
-      <div className="text-center py-8 border-b border-gray-100 bg-white shadow-sm">
+      <div className="text-center py-8 border-b bg-white shadow-sm" style={{ borderColor: theme.colors.border }}>
         <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: theme.colors.primary }}>Odoo Cafe</h1>
-        <p className="text-lg text-gray-500 uppercase tracking-widest font-medium">Welcome</p>
+        <p className="text-lg uppercase tracking-widest font-medium" style={{ color: theme.colors.text.secondary }}>Welcome</p>
       </div>
 
       {/* Cart Items */}
@@ -23,7 +23,7 @@ const SummaryView = ({ cart, orderTotal }) => {
         ) : (
           <ul className="space-y-6">
             {cart.map((item, idx) => (
-              <li key={idx} className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-50 animate-slideIn">
+              <li key={idx} className="flex justify-between items-center bg-white p-6 rounded-lg shadow-sm border animate-slideIn" style={{ borderColor: theme.colors.border }}>
                 <div className="flex items-center gap-6">
                   <span className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-full text-xl font-bold text-gray-600">
                     {item.qty}
@@ -38,7 +38,7 @@ const SummaryView = ({ cart, orderTotal }) => {
       </div>
 
       {/* Footer Totals */}
-      <div className="bg-white border-t border-gray-100 p-8 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+      <div className="bg-white border-t p-8 shadow-sm" style={{ borderColor: theme.colors.border }}>
         <div className="max-w-4xl mx-auto space-y-3">
           <div className="flex justify-between text-gray-500 text-xl">
             <span>Subtotal</span>
@@ -73,7 +73,7 @@ const PaymentView = ({ amount }) => {
           <p className="text-xl text-gray-500">Use any UPI App</p>
         </div>
 
-        <div className="p-4 bg-white rounded-3xl shadow-xl border border-gray-100">
+        <div className="p-4 bg-white rounded-2xl shadow-lg border" style={{ borderColor: theme.colors.border }}>
           {/* Placeholder QR using an icon for demo - in real app would be QR Image */}
           <div className="w-64 h-64 bg-gray-900 rounded-xl flex items-center justify-center text-white">
             <span className="text-8xl">QR</span>

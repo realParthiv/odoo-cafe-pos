@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { theme } from "../../theme/theme";
 import { ordersService } from "../../services/apiService";
 import { WS_URL } from "../../services/EndPoint";
+import Header from "../../components/Header";
 
 const Kitchen = () => {
   const [orders, setOrders] = useState([]);
@@ -13,44 +14,53 @@ const Kitchen = () => {
     try {
       setLoading(true);
       const response = await ordersService.getKitchenOrders();
+      console.log("📥 API Response:", response);
+
       let rawOrders = null;
-      // Robust extraction strategies
-      if (response?.data?.orders && Array.isArray(response.data.orders)) {
-        rawOrders = response.data.orders;
-      } else if (response?.orders && Array.isArray(response.orders)) {
-        rawOrders = response.orders;
+
+      // The API returns: { count, next, previous, results }
+      // ordersService.getKitchenOrders() returns response.data, so we check for results directly
+      if (response?.results && Array.isArray(response.results)) {
+        rawOrders = response.results;
+        console.log(`✅ Found ${rawOrders.length} orders`);
       } else if (Array.isArray(response)) {
         rawOrders = response;
-      } else if (response?.data && Array.isArray(response.data)) {
-        rawOrders = response.data;
       }
 
-      if (rawOrders) {
-        const mappedOrders = rawOrders.map(o => ({
-          id: o.order_number || `#${o.id}`,
-          originalId: o.id, // Store key for API
-          ticketId: o.order_number || `#${o.id}`,
-          table: o.table_number ? `Table ${o.table_number}` : (o.table || "Takeaway"),
-          // Map 'lines' to 'items'
-          items: o.lines ? o.lines.map(l => ({
-            lineId: l.id,
-            name: l.product_name || "Unknown Item",
-            qty: l.quantity || 1,
-            completed: l.status === 'ready'
-          })) : [],
-          // Map 'draft' -> 'to_cook'
-          status: (o.status === 'draft' || o.status === 'to_cook') ? 'to_cook'
-            : o.status === 'in_progress' ? 'preparing'
-              : (o.status === 'ready' || o.status === 'completed') ? 'ready' // Map backend ready/completed -> ready column
-                : 'to_cook',
-          time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"
-        }));
+      if (rawOrders && rawOrders.length > 0) {
+        const mappedOrders = rawOrders.map(o => {
+          const itemCount = o.lines ? o.lines.length : 0;
+          console.log(`📋 Order ${o.order_number}: ${itemCount} items, status: ${o.status}`);
+
+          return {
+            id: o.order_number || `#${o.id}`,
+            originalId: o.id,
+            ticketId: o.order_number || `#${o.id}`,
+            table: o.table_number ? `Table ${o.table_number}` : (o.table || "Takeaway"),
+            items: o.lines ? o.lines.map(l => ({
+              lineId: l.id,
+              name: l.product_name || "Unknown Item",
+              qty: l.quantity || 1,
+              completed: l.status === 'ready'
+            })) : [],
+            // Map backend status to frontend columns
+            // Backend: 'pending', 'preparing', 'ready'
+            status: (o.status === 'draft' || o.status === 'to_cook' || o.status === 'sent_to_kitchen' || o.status === 'pending') ? 'to_cook'
+              : (o.status === 'in_progress' || o.status === 'preparing') ? 'preparing'
+                : (o.status === 'ready' || o.status === 'completed') ? 'ready'
+                  : 'to_cook', // Default to 'to_cook'
+            time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"
+          };
+        });
+
         setOrders(mappedOrders);
+        console.log("✅ Mapped Orders:", mappedOrders);
       } else {
+        console.warn("⚠️ No orders found");
         setOrders([]);
       }
     } catch (error) {
-      console.error("API Error:", error);
+      console.error("❌ API Error:", error);
       setError("Failed to connect to Kitchen API. Please check backend connection.");
     } finally {
       setLoading(false);
@@ -75,12 +85,19 @@ const Kitchen = () => {
           const data = JSON.parse(event.data);
           console.log("📩 WebSocket Message:", data);
 
-          // Handle different message types if your backend sends them
-          // Assuming the message contains the list of orders or a single order update
-          if (data.type === 'orders_update' && Array.isArray(data.orders)) {
-            // Re-use logic to map orders
-            const rawOrders = data.orders;
-            const mappedOrders = rawOrders.map(o => ({
+          // Handle different message types
+          // If message has 'data' property with orders, or is directly an update
+          let incomingOrders = null;
+
+          if (data.type === 'orders_update' || data.type === 'order_created' || data.type === 'order_updated') {
+            // Check for various payload structures
+            if (data.orders && Array.isArray(data.orders)) incomingOrders = data.orders;
+            else if (data.data && Array.isArray(data.data)) incomingOrders = data.data;
+            else if (data.order) incomingOrders = [data.order]; // Single order update
+          }
+
+          if (incomingOrders) {
+            const mappedOrders = incomingOrders.map(o => ({
               id: o.order_number || `#${o.id}`,
               originalId: o.id,
               ticketId: o.order_number || `#${o.id}`,
@@ -91,16 +108,31 @@ const Kitchen = () => {
                 qty: l.quantity || 1,
                 completed: l.status === 'ready'
               })) : [],
-              status: (o.status === 'draft' || o.status === 'to_cook') ? 'to_cook'
-                : o.status === 'in_progress' ? 'preparing'
+              // Consistent Status Mapping
+              status: (o.status === 'draft' || o.status === 'to_cook' || o.status === 'sent_to_kitchen' || o.status === 'pending') ? 'to_cook'
+                : (o.status === 'in_progress' || o.status === 'preparing') ? 'preparing'
                   : (o.status === 'ready' || o.status === 'completed') ? 'ready'
                     : 'to_cook',
               time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"
             }));
-            setOrders(mappedOrders);
+
+            // If it's a full list replacement
+            if (mappedOrders.length > 1) {
+              setOrders(mappedOrders);
+            } else {
+              // If single order update, merge it
+              setOrders(prev => {
+                const newOrder = mappedOrders[0];
+                const exists = prev.find(p => p.id === newOrder.id);
+                if (exists) {
+                  return prev.map(p => p.id === newOrder.id ? newOrder : p);
+                }
+                return [...prev, newOrder];
+              });
+            }
+            console.log("⚡ WebSocket Updated Orders");
           } else {
-            // If the structure is unknown, just refresh from API for safety
-            console.log("⚠️ Unknown WS message format, fetching fresh data...");
+            console.log("⚠️ Unknown WS format, fetching fresh data...");
             fetchOrders();
           }
 
@@ -128,9 +160,33 @@ const Kitchen = () => {
   }, []);
 
   // --- Handlers ---
-  const moveOrder = (orderId, newStatus) => {
+  const moveOrder = async (orderId, newStatus) => {
     if (!newStatus) return;
+
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    // Optimistic Update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+
+    // Map frontend status to backend status
+    // Frontend: 'to_cook', 'preparing', 'ready'
+    // Backend: 'pending', 'preparing', 'ready'
+    const backendStatus = newStatus === 'to_cook' ? 'pending'
+      : newStatus === 'preparing' ? 'preparing'
+        : newStatus === 'ready' ? 'ready'
+          : 'pending';
+
+    console.log(`Dragging order ${orderId} to ${newStatus} (Back: ${backendStatus})`);
+
+    try {
+      // Unified API call for Order Status (no line_id)
+      await ordersService.updateStatus(order.originalId, { status: backendStatus });
+      console.log(`✅ Backend updated for order ${orderId}`);
+    } catch (err) {
+      console.error("❌ Failed to update order status on drag", err);
+      fetchOrders();
+    }
   };
 
   const toggleItemCompletion = async (orderId, idx, e) => {
@@ -140,18 +196,38 @@ const Kitchen = () => {
     const item = order.items[idx];
 
     // Optimistic Update
+    let allItemsWillBeReady = false;
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o;
       const newItems = [...o.items];
-      newItems[idx] = { ...newItems[idx], completed: !newItems[idx].completed };
+      const newCompletedState = !newItems[idx].completed;
+      newItems[idx] = { ...newItems[idx], completed: newCompletedState };
+
+      // Check if ALL items are now completed
+      if (newItems.every(i => i.completed)) {
+        allItemsWillBeReady = true;
+        return { ...o, items: newItems, status: 'ready' }; // Optimistically move to Ready column
+      }
+
       return { ...o, items: newItems };
     }));
 
     try {
-      const newStatus = !item.completed ? 'ready' : 'preparing';
-      await ordersService.updateLineStatus(order.originalId, item.lineId, newStatus);
+      // 1. Update Line Item Status (with line_id)
+      const newStatus = !item.completed ? 'ready' : 'pending';
+      await ordersService.updateStatus(order.originalId, {
+        line_id: item.lineId,
+        status: newStatus
+      });
+
+      // 2. If all items completed, update Order Status (no line_id)
+      if (allItemsWillBeReady) {
+        console.log(`🎉 All items ready for ${orderId}, moving to Ready...`);
+        await ordersService.updateStatus(order.originalId, { status: 'ready' });
+      }
     } catch (err) {
       console.error("Failed to update status", err);
+      // Revert on error
       fetchOrders();
     }
   };
@@ -275,23 +351,29 @@ const Kitchen = () => {
 
                       {/* Items List */}
                       <div className="space-y-2 mb-3">
-                        {order.items.map((item, idx) => (
-                          <div
-                            key={idx}
-                            onClick={(e) => toggleItemCompletion(order.id, idx, e)}
-                            className="flex justify-between items-center text-sm cursor-pointer hover:bg-gray-50 p-1 -mx-1 rounded"
-                          >
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.completed ? 'bg-green-400' : 'bg-gray-200'}`}></div>
-                              <span className={`truncate ${item.completed ? 'line-through text-gray-400' : 'text-gray-700 font-medium'}`}>
-                                {item.name}
+                        {order.items.length === 0 ? (
+                          <div className="text-center py-4 text-gray-400 italic text-sm border border-dashed border-gray-200 rounded bg-gray-50">
+                            No items in this order
+                          </div>
+                        ) : (
+                          order.items.map((item, idx) => (
+                            <div
+                              key={idx}
+                              onClick={(e) => toggleItemCompletion(order.id, idx, e)}
+                              className="flex justify-between items-center text-sm cursor-pointer hover:bg-gray-50 p-1 -mx-1 rounded"
+                            >
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.completed ? 'bg-green-400' : 'bg-gray-200'}`}></div>
+                                <span className={`truncate ${item.completed ? 'line-through text-gray-400' : 'text-gray-700 font-medium'}`}>
+                                  {item.name}
+                                </span>
+                              </div>
+                              <span className={`font-bold ml-2 ${item.completed ? 'text-gray-300' : 'text-gray-800'}`}>
+                                x{item.qty}
                               </span>
                             </div>
-                            <span className={`font-bold ml-2 ${item.completed ? 'text-gray-300' : 'text-gray-800'}`}>
-                              x{item.qty}
-                            </span>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
 
                       {/* Footer Actions */}
