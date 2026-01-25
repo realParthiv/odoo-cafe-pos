@@ -430,9 +430,9 @@ export const settingsService = {
 
 export const orderService = {
   // 1. Get Dashboard Stats
-  getDashboardStats: async () => {
+  getDashboardStats: async (period = 'daily') => {
     try {
-      const response = await api.get("/api/orders/dashboard/stats/");
+      const response = await api.get(`/api/orders/dashboard/stats/?period=${period}`);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
@@ -440,10 +440,10 @@ export const orderService = {
   },
 
   // 2. Get Sales History
-  getSalesHistory: async (days = 30) => {
+  getSalesHistory: async (days = 30, period = 'daily') => {
     try {
       const response = await api.get(
-        `/api/orders/dashboard/sales-history/?days=${days}`,
+        `/api/orders/dashboard/sales-history/?days=${days}&period=${period}`,
       );
       return response.data;
     } catch (error) {

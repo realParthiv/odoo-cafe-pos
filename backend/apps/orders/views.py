@@ -115,16 +115,33 @@ class OrderViewSet(viewsets.ModelViewSet):
                 message="Cannot add items to a non-draft order.",
                 error_code="ORDER_NOT_DRAFT"
             )
+        
+        print(f"🔵 ADD_LINE - Order {order.order_number} current totals: sub={order.subtotal}, tax={order.tax_amount}, total={order.total_amount}")
+        print(f"🔵 ADD_LINE - Incoming data: {request.data}")
             
         serializer = OrderLineSerializer(data=request.data)
         if not serializer.is_valid():
+            print(f"❌ ADD_LINE - Validation failed: {serializer.errors}")
             return APIResponse.error(
                 message="Validation failed",
                 errors=serializer.errors,
                 error_code="VALIDATION_ERROR"
             )
+        
+        # Save the line
+        line = serializer.save(order=order)
+        
+        # Refresh order and line to see updated values
+        order.refresh_from_db()
+        line.refresh_from_db()
+        
+        print(f"✅ ADD_LINE - Line created: id={line.id}, product={line.product.name}, qty={line.quantity}")
+        print(f"   - unit_price: {line.unit_price}")
+        print(f"   - tax_rate: {line.tax_rate}")
+        print(f"   - total_price: {line.total_price}")
+        print(f"   - tax_amount: {line.tax_amount}")
+        print(f"✅ ADD_LINE - Order {order.order_number} NEW totals: sub={order.subtotal}, tax={order.tax_amount}, total={order.total_amount}")
             
-        serializer.save(order=order)
         return APIResponse.success(
             data=serializer.data,
             message="Item added to order"
@@ -482,19 +499,49 @@ class QROrderView(views.APIView):
                     error_code="LINE_QUANTITY_INVALID"
                 )
 
+            # Fetch product to get price and tax_rate
+            from apps.menu.models import Product
+            try:
+                product = Product.objects.get(pk=product_id)
+            except Product.DoesNotExist:
+                logger.error(f"[QR_ORDER][{request_id}] Line {idx} product not found: {product_id}")
+                return APIResponse.error(
+                    message=f"Line {idx} references an invalid product.",
+                    error_code="PRODUCT_NOT_FOUND"
+                )
+
+            # Create order line with explicit unit_price and tax_rate
+            print(f"[QR_ORDER][{request_id}] BEFORE CREATE - Product: {product.name}, Price: {product.price}, Tax: {product.tax_rate}")
+            
             created_line = OrderLine.objects.create(
                 order=order,
-                product_id=product_id,
+                product=product,
                 variant_id=variant_id,
                 quantity=qty_val,
+                unit_price=product.price,
+                tax_rate=product.tax_rate,
                 notes=notes,
-                # unit_price and tax_rate will be auto-populated from product on save
             )
+            
+            # Refresh to get saved values
+            created_line.refresh_from_db()
+            print(f"[QR_ORDER][{request_id}] AFTER CREATE - Line ID: {created_line.id}")
+            print(f"   - unit_price: {created_line.unit_price}")
+            print(f"   - tax_rate: {created_line.tax_rate}")
+            print(f"   - quantity: {created_line.quantity}")
+            print(f"   - total_price: {created_line.total_price}")
+            print(f"   - tax_amount: {created_line.tax_amount}")
+            
             created_lines.append(created_line.id)
+            logger.info(f"[QR_ORDER][{request_id}] Line {idx} created: product={product.name}, qty={qty_val}, price={product.price}, tax={product.tax_rate}")
 
         # Recalculate totals now that lines are added
+        print(f"[QR_ORDER][{request_id}] BEFORE calculate_totals - Order totals: subtotal={order.subtotal}, tax={order.tax_amount}, total={order.total_amount}")
+        
         order.calculate_totals()
         order.refresh_from_db()
+        
+        print(f"[QR_ORDER][{request_id}] AFTER calculate_totals - Order totals: subtotal={order.subtotal}, tax={order.tax_amount}, total={order.total_amount}")
         logger.info(f"[QR_ORDER][{request_id}] Lines created: {created_lines}; totals updated subtotal={order.subtotal} tax={order.tax_amount} total={order.total_amount}")
 
         # Razorpay Integration: Create Razorpay Order
