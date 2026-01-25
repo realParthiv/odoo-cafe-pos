@@ -38,13 +38,15 @@ const Overview = () => {
   const [salesHistory, setSalesHistory] = useState([]);
   const [cashierStats, setCashierStats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('daily'); // hourly, daily, monthly, yearly
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
         const [statsRes, historyRes, cashierRes] = await Promise.all([
-          orderService.getDashboardStats(),
-          orderService.getSalesHistory(30),
+          orderService.getDashboardStats(period),
+          orderService.getSalesHistory(30, period),
           orderService.getCashierPerformance(),
         ]);
 
@@ -66,7 +68,7 @@ const Overview = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [period]);
 
   // Default data for when there is no history
   const defaultData = Array.from({ length: 7 }, (_, i) => {
@@ -142,9 +144,26 @@ const Overview = () => {
 
       {/* Sales Chart */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-10">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">
-          Sales Overview (Last 30 Days)
-        </h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-gray-900">
+            Sales Overview
+          </h3>
+          <div className="flex gap-2">
+            {['hourly', 'daily', 'monthly', 'yearly'].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  period === p
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {p.charAt(0).toUpperCase() + p.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="h-[300px] w-full">
           {loading ? (
             <div className="h-full w-full bg-gray-50 rounded-xl animate-pulse" />
@@ -170,10 +189,6 @@ const Overview = () => {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  tickFormatter={(value) => {
-                    const date = new Date(value);
-                    return `${date.getDate()}/${date.getMonth() + 1}`;
-                  }}
                 />
                 <YAxis
                   axisLine={false}
@@ -189,9 +204,7 @@ const Overview = () => {
                     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                   }}
                   formatter={(value) => [`$${value}`, "Sales"]}
-                  labelFormatter={(label) =>
-                    new Date(label).toLocaleDateString()
-                  }
+                  labelFormatter={(label) => label}
                 />
                 <Area
                   type="monotone"
@@ -213,6 +226,9 @@ const Overview = () => {
           <h3 className="text-lg font-bold text-gray-900">
             Cashier Performance
           </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Track cashier sales, sessions, and productivity
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -228,16 +244,25 @@ const Overview = () => {
                   Orders
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Sessions
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Hours Worked
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Avg. Value
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Sales/Hour
                 </th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-100  ">
+            <tbody className="divide-y divide-gray-100">
               {loading ? (
                 [1, 2, 3].map((i) => (
                   <tr key={i}>
-                    <td colSpan="4" className="px-6 py-4">
+                    <td colSpan="7" className="px-6 py-4">
                       <div className="h-4 bg-gray-100 rounded animate-pulse w-full" />
                     </td>
                   </tr>
@@ -250,7 +275,7 @@ const Overview = () => {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold mr-3">
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold mr-3 shadow-sm">
                           {cashier.first_name?.[0] || "U"}
                         </div>
                         <div>
@@ -263,21 +288,50 @@ const Overview = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      ${cashier.total_sales?.toLocaleString() || "0.00"}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-bold text-emerald-600">
+                        ${cashier.total_sales?.toLocaleString() || "0.00"}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {cashier.total_orders}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {cashier.total_orders || 0}
+                      </div>
+                      <div className="text-xs text-gray-500">orders</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${cashier.avg_per_order?.toFixed(2) || "0.00"}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {cashier.sessions_count || 0}
+                      </div>
+                      <div className="text-xs text-gray-500">sessions</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {cashier.total_hours_worked?.toFixed(1) || "0.0"}h
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        ${cashier.avg_per_order?.toFixed(2) || "0.00"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                        $
+                        {cashier.total_hours_worked > 0
+                          ? (
+                              cashier.total_sales / cashier.total_hours_worked
+                            ).toFixed(0)
+                          : "0"}
+                        /hr
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan="4"
+                    colSpan="7"
                     className="px-6 py-8 text-center text-gray-500"
                   >
                     No cashier data available

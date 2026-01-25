@@ -54,18 +54,18 @@ class Payment(models.Model):
         order = self.order
         total_paid = sum(p.amount for p in order.payments.filter(status=Payment.Status.COMPLETED))
         
-        if total_paid >= order.total_amount:
-            order.status = Order.Status.COMPLETED
-            order.save()
+        # Don't auto-complete orders - they should stay in SENT_TO_KITCHEN status
+        # Cashier/kitchen staff will manually mark as complete when ready
+        # if total_paid >= order.total_amount:
+        #     order.status = Order.Status.COMPLETED
+        #     order.save()
             
-            # Update session totals
-            if order.session:
-                order.session.update_totals()
-            
-            # When order is completed, mark table as available
-            if order.table:
-                order.table.status = 'available'
-                order.table.save()
+        # Update session totals
+        if order.session:
+            order.session.update_totals()
+        
+        # Don't mark table as available yet - order is still being prepared
+        # Table will be freed when order is fully completed by kitchen/staff
 
 class Receipt(models.Model):
     """

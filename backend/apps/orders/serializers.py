@@ -11,7 +11,7 @@ class OrderLineSerializer(serializers.ModelSerializer):
             'quantity', 'unit_price', 'tax_rate', 
             'tax_amount', 'total_price', 'notes', 'status'
         ]
-        read_only_fields = ['tax_amount', 'total_price', 'status', 'unit_price', 'tax_rate']
+        read_only_fields = ['tax_amount', 'total_price', 'status', 'product_name']
 
 class OrderSerializer(serializers.ModelSerializer):
     lines = OrderLineSerializer(many=True, read_only=True)

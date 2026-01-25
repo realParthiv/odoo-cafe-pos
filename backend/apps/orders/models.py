@@ -83,15 +83,27 @@ class Order(models.Model):
 
     def calculate_totals(self):
         """Recalculate order totals from lines."""
+        # Force fresh queryset from database
+        self.refresh_from_db()
         lines = self.lines.all()
+        
+        print(f"🔧 CALCULATE_TOTALS - Order {self.order_number}")
+        print(f"   - Lines count: {lines.count()}")
+        for line in lines:
+            print(f"   - Line {line.id}: {line.product.name} qty={line.quantity} unit_price={line.unit_price} total={line.total_price} tax={line.tax_amount}")
+        
         subtotal = sum((line.total_price or Decimal('0')) for line in lines) or Decimal('0')
         tax = sum((line.tax_amount or Decimal('0')) for line in lines) or Decimal('0')
         discount = Decimal(self.discount_amount or 0)
+        
+        print(f"   - Calculated: subtotal={subtotal}, tax={tax}, discount={discount}, total={subtotal + tax - discount}")
 
         self.subtotal = subtotal
         self.tax_amount = tax
         self.total_amount = subtotal + tax - discount
         self.save(update_fields=['subtotal', 'tax_amount', 'total_amount'])
+        print(f"   - Saved to DB: subtotal={self.subtotal}, tax={self.tax_amount}, total={self.total_amount}")
+
 
 
 class OrderLine(models.Model):
