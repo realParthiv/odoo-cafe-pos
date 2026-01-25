@@ -133,12 +133,8 @@ const OrderCart = ({
           </div>
         </div>
 
-        <div className="cart-main-actions">
-          <button className="btn-action btn-send" onClick={onSendToKitchen}>
-            <Send size={20} />
-            <span>Send to Kitchen</span>
-          </button>
-          <button className="btn-action btn-pay" onClick={onPayment}>
+        <div className="cart-main-actions-single">
+          <button className="btn-action btn-pay full-width" onClick={onPayment}>
             <CreditCard size={20} />
             <span>Payment</span>
           </button>

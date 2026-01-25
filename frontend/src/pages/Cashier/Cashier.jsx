@@ -121,7 +121,12 @@ const Cashier = () => {
           <Routes>
             <Route
               path="/"
-              element={<TableView onTableSelect={handleTableSelect} />}
+              element={
+                <TableView
+                  onTableSelect={handleTableSelect}
+                  floorId={currentSession?.floor}
+                />
+              }
             />
             <Route
               path="/register"
@@ -129,9 +134,7 @@ const Cashier = () => {
                 selectedTable ? (
                   <POSView selectedTable={selectedTable} />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-500">
-                    Please select a table from the Tables view first.
-                  </div>
+                  <Navigate to="/cashier" replace />
                 )
               }
             />

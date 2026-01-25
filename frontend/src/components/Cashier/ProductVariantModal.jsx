@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { PRODUCT_VARIANTS } from '../../constants/mockData';
+import React, { useState } from "react";
+import { PRODUCT_VARIANTS } from "../../constants/mockData";
 
 const ProductVariantModal = ({ isOpen, onClose, product, onAddToCart }) => {
   const [selectedVariant, setSelectedVariant] = useState(null);
@@ -12,12 +12,14 @@ const ProductVariantModal = ({ isOpen, onClose, product, onAddToCart }) => {
 
   const calculatePrice = () => {
     if (!selectedVariant) return Number(product.price || 0);
-    return Number(product.price || 0) + Number(selectedVariant.extra_price || 0);
+    return (
+      Number(product.price || 0) + Number(selectedVariant.extra_price || 0)
+    );
   };
 
   const handleAddToCart = () => {
     if (hasVariants && !selectedVariant) {
-      alert('Please select a variant');
+      alert("Please select a variant");
       return;
     }
 
@@ -28,7 +30,9 @@ const ProductVariantModal = ({ isOpen, onClose, product, onAddToCart }) => {
       quantity: quantity,
       tax_rate: Number(product.tax_rate || 0),
       uom: selectedVariant ? selectedVariant.unit : product.uom,
-      variant: selectedVariant ? `${selectedVariant.attribute}: ${selectedVariant.value}` : null,
+      variant: selectedVariant
+        ? `${selectedVariant.attribute}: ${selectedVariant.value}`
+        : null,
       variant_id: selectedVariant ? selectedVariant.id : null,
       image: product.image_url || product.image,
     };
@@ -44,116 +48,122 @@ const ProductVariantModal = ({ isOpen, onClose, product, onAddToCart }) => {
       <div className="variant-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{product.name}</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose}>
+            ✕
+          </button>
         </div>
 
         <div className="modal-body">
-          <div className="product-info-section">
-            <p className="product-description">{product.description}</p>
-            <div className="base-price">
-              <span>Base Price:</span>
-              <span className="price">${product.price}</span>
-            </div>
-          </div>
-
-          {hasVariants ? (
-            <>
-              <h3 className="section-title">Select Variant</h3>
-              <div className="variants-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Attributes</th>
-                      <th>Value</th>
-                      <th>Unit</th>
-                      <th>Extra Prices</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variants.map((variant) => (
-                      <tr
-                        key={variant.id}
-                        className={selectedVariant?.id === variant.id ? 'selected' : ''}
-                      >
-                        <td>{variant.attribute}</td>
-                        <td>{variant.value}</td>
-                        <td>
-                          <span className="unit-badge">{variant.unit}</span>
-                        </td>
-                        <td>${variant.extra_price}</td>
-                        <td>
-                          <button
-                            className={`select-variant-btn ${selectedVariant?.id === variant.id ? 'selected' : ''}`}
-                            onClick={() => setSelectedVariant(variant)}
-                          >
-                            {selectedVariant?.id === variant.id ? '✓ Selected' : 'Select'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {selectedVariant && (
-                <div className="selected-variant-info">
-                  <div className="info-row">
-                    <span>Selected:</span>
-                    <span className="highlight">
-                      {selectedVariant.attribute} - {selectedVariant.value} ({selectedVariant.unit})
-                    </span>
-                  </div>
-                  <div className="info-row">
-                    <span>Total Price:</span>
-                    <span className="price-highlight">${calculatePrice()}</span>
-                  </div>
+          <div className="product-details-container">
+            {/* Left Column: Image & Basic Info */}
+            <div className="product-visuals">
+              {product.image_url || product.image ? (
+                <img
+                  src={product.image_url || product.image}
+                  alt={product.name}
+                  className="product-modal-image"
+                />
+              ) : (
+                <div className="product-modal-placeholder">
+                  {product.name.charAt(0)}
                 </div>
               )}
-            </>
-          ) : (
-            <div className="no-variants">
-              <p>This product has no variants. Standard pricing applies.</p>
+              <div className="base-price-tag">
+                <span>Base Price</span>
+                <span className="price">
+                  ${Number(product.price).toFixed(2)}
+                </span>
+              </div>
             </div>
-          )}
 
-          <div className="quantity-section">
-            <label>Quantity:</label>
-            <div className="quantity-control-large">
-              <button
-                className="qty-btn-large"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              >
-                −
-              </button>
-              <input
-                type="number"
-                className="quantity-input"
-                value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                min="1"
-              />
-              <button
-                className="qty-btn-large"
-                onClick={() => setQuantity(quantity + 1)}
-              >
-                +
-              </button>
-            </div>
-          </div>
+            {/* Right Column: Controls */}
+            <div className="product-controls">
+              <p className="product-description">
+                {product.description || "No description available."}
+              </p>
 
-          <div className="total-section">
-            <div className="total-row">
-              <span>Subtotal:</span>
-              <span className="total-amount">${(calculatePrice() * quantity).toFixed(2)}</span>
-            </div>
-            <div className="tax-info">
-              <span>Tax ({product.tax_rate}%):</span>
-              <span>${((calculatePrice() * quantity * product.tax_rate) / 100).toFixed(2)}</span>
-            </div>
-            <div className="grand-total">
-              <span>Total:</span>
-              <span>${((calculatePrice() * quantity) * (1 + product.tax_rate / 100)).toFixed(2)}</span>
+              {hasVariants ? (
+                <div className="variants-section">
+                  <h3 className="section-title">Select Variant</h3>
+                  <div className="variants-grid">
+                    {variants.map((variant) => (
+                      <button
+                        key={variant.id}
+                        className={`variant-option-btn ${selectedVariant?.id === variant.id ? "selected" : ""}`}
+                        onClick={() => setSelectedVariant(variant)}
+                      >
+                        <span className="variant-name">{variant.value}</span>
+                        <span className="variant-extra">
+                          +
+                          {variant.extra_price > 0
+                            ? `$${variant.extra_price}`
+                            : "Free"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="no-variants-message">
+                  <span>ℹ️ Standard Item</span>
+                  <p>This product has no customizable options.</p>
+                </div>
+              )}
+
+              <div className="quantity-section">
+                <label>Quantity</label>
+                <div className="quantity-control-premium">
+                  <button
+                    className="qty-btn-premium"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    className="quantity-input-premium"
+                    value={quantity}
+                    onChange={(e) =>
+                      setQuantity(Math.max(1, parseInt(e.target.value) || 1))
+                    }
+                    min="1"
+                  />
+                  <button
+                    className="qty-btn-premium"
+                    onClick={() => setQuantity(quantity + 1)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="total-section-premium">
+                <div className="total-row">
+                  <span>Subtotal</span>
+                  <span>${(calculatePrice() * quantity).toFixed(2)}</span>
+                </div>
+                <div className="total-row tax">
+                  <span>Tax ({product.tax_rate}%)</span>
+                  <span>
+                    $
+                    {(
+                      (calculatePrice() * quantity * product.tax_rate) /
+                      100
+                    ).toFixed(2)}
+                  </span>
+                </div>
+                <div className="total-row grand">
+                  <span>Total</span>
+                  <span className="grand-total-amount">
+                    $
+                    {(
+                      calculatePrice() *
+                      quantity *
+                      (1 + product.tax_rate / 100)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

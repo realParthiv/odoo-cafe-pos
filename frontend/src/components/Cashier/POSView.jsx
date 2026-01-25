@@ -119,13 +119,13 @@ const POSView = ({ selectedTable }) => {
     try {
       // Step 1: Create Order on backend
       let orderId = currentOrderId;
-      
+
       if (!orderId) {
         const orderData = {
           table: selectedTable.id,
           order_type: "dine_in",
         };
-        
+
         const orderResponse = await orderService.createOrder(orderData);
         orderId = orderResponse.data?.id || orderResponse.id;
         setCurrentOrderId(orderId);
@@ -148,12 +148,17 @@ const POSView = ({ selectedTable }) => {
         amount: totalAmount,
       };
 
-      const razorpayResponse = await paymentService.createRazorpayOrder(razorpayOrderData);
-      
+      const razorpayResponse =
+        await paymentService.createRazorpayOrder(razorpayOrderData);
+
       // Backend wraps response in {success: true, data: {...}}
-      if (razorpayResponse && razorpayResponse.success && razorpayResponse.data) {
+      if (
+        razorpayResponse &&
+        razorpayResponse.success &&
+        razorpayResponse.data
+      ) {
         const razorpayData = razorpayResponse.data;
-        
+
         // Step 3: Open Razorpay Checkout
         const options = {
           key: razorpayData.razorpay_key,
@@ -181,11 +186,15 @@ const POSView = ({ selectedTable }) => {
         const razorpay = new window.Razorpay(options);
         razorpay.open();
       } else {
-        throw new Error(razorpayResponse?.message || "Failed to create Razorpay order");
+        throw new Error(
+          razorpayResponse?.message || "Failed to create Razorpay order",
+        );
       }
     } catch (error) {
       console.error("Payment initiation failed:", error);
-      alert("Failed to initiate payment: " + (error.message || "Unknown error"));
+      alert(
+        "Failed to initiate payment: " + (error.message || "Unknown error"),
+      );
     }
   };
 
@@ -200,17 +209,33 @@ const POSView = ({ selectedTable }) => {
       const response = await paymentService.verifyPayment(verifyData);
 
       if (response && response.success) {
-        alert("✅ Payment Successful!\n\nOrder sent to kitchen.");
+        try {
+          await orderService.sendToKitchen(orderId);
+          alert("✅ Payment Successful!\n\nOrder sent to kitchen.");
+        } catch (kitchenError) {
+          console.error(
+            "Failed to send to kitchen after payment:",
+            kitchenError,
+          );
+          alert("✅ Payment Successful!.");
+        }
+
         setCartItems([]);
         setCurrentOrderId(null);
         // Refresh the page to reset the table selection
         window.location.reload();
       } else {
-        alert("❌ Payment verification failed!\n\n" + (response.message || "Please contact support."));
+        alert(
+          "❌ Payment verification failed!\n\n" +
+            (response.message || "Please contact support."),
+        );
       }
     } catch (error) {
       console.error("Verification error:", error);
-      alert("❌ Payment verification error!\n\n" + (error.message || "Please contact support."));
+      alert(
+        "❌ Payment verification error!\n\n" +
+          (error.message || "Please contact support."),
+      );
     }
   };
 

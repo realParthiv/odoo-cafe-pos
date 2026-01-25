@@ -14,7 +14,7 @@ class TableSerializer(serializers.ModelSerializer):
             'id', 'floor', 'floor_name', 'table_number', 'name', 
             'capacity', 'status', 'shape', 
             'x_position', 'y_position', 'width', 'height',
-            'qr_code_url', 'is_active', 'created_at', 'updated_at'
+            'qr_code_url', 'token', 'is_active', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'qr_code_url', 'token', 'created_at', 'updated_at']
 
