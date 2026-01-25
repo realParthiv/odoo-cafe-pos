@@ -493,18 +493,6 @@ export const orderService = {
     }
   },
 
-  // 4. Update Order Line
-  updateOrderLine: async (orderId, lineId, data) => {
-    try {
-      const response = await api.patch(
-        `/api/orders/${orderId}/lines/${lineId}/`,
-        data,
-      );
-      return response.data;
-    } catch (error) {
-      throw error.response ? error.response.data : error;
-    }
-  },
 
   // 5. Delete Order Line
   deleteOrderLine: async (orderId, lineId) => {
@@ -530,17 +518,6 @@ export const orderService = {
     }
   },
 
-  // 6. Get Orders (with filters)
-  getOrders: async (params = {}) => {
-    try {
-      const queryString = new URLSearchParams(params).toString();
-      const url = `/api/orders/${queryString ? `?${queryString}` : ""}`;
-      const response = await api.get(url);
-      return response.data;
-    } catch (error) {
-      throw error.response ? error.response.data : error;
-    }
-  },
 };
 
 export const paymentService = {
@@ -586,27 +563,38 @@ export const paymentService = {
 };
 
 export const ordersService = {
-  // 1. Get Kitchen Orders
-  getKitchenOrders: async (filters = {}) => {
+  // 0. Get Orders (with filters)
+  getOrders: async (params = {}) => {
     try {
-      const params = new URLSearchParams(filters);
-      const url = `/api/kitchen/orders/?${params.toString()}`;
+      const queryString = new URLSearchParams(params).toString();
+      const url = `/api/orders/${queryString ? `?${queryString}` : ""}`;
       const response = await api.get(url);
-      console.log("📥 Full API Response:", response);
       return response.data;
     } catch (error) {
       throw error.response ? error.response.data : error;
     }
   },
 
-  // 2. Update Status (Unified Endpoint for Order & Line Item)
-  updateStatus: async (orderId, payload) => {
+  // 1. Get Kitchen Orders
+  getKitchenOrders: async (filters = {}) => {
     try {
-      const response = await api.patch(`/api/kitchen/orders/${orderId}/update-status/`, payload);
-      console.log("✅ Status Updated:", response.data);
+      const params = new URLSearchParams(filters);
+      const url = `/api/kitchen/orders/?${params.toString()}`;
+      const response = await api.get(url);
+      console.log("Kitchen Orders",response.data);
       return response.data;
     } catch (error) {
-      console.error("❌ Update Status Error:", error);
+      throw error.response ? error.response.data : error;
+    }
+  },
+
+  // 2. Update Order Status
+  updateStatus: async (orderId, payload) => {
+    try {
+      // payload = { "status": "completed" }
+      const response = await api.patch(`/api/kitchen/orders/${orderId}/update-status/`, payload);
+      return response.data;
+    } catch (error) {
       throw error.response ? error.response.data : error;
     }
   },
