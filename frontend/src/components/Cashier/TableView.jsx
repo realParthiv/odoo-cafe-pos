@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { tableService } from "../../services/apiService";
+import { RefreshCw } from "lucide-react";
 
 const TableView = ({ onTableSelect, floorId }) => {
   const [floors, setFloors] = useState([]);
@@ -149,7 +150,7 @@ const TableView = ({ onTableSelect, floorId }) => {
             onClick={handleRefresh}
             title="Sync Status"
           >
-            🔄
+            <RefreshCw size={18} />
           </button>
         </div>
       </div>

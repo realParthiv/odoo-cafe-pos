@@ -13,14 +13,12 @@ const POSView = ({ selectedTable }) => {
   const [currentOrderId, setCurrentOrderId] = useState(null);
 
   const handleAddToCart = (product) => {
-    // Check if product has variants
     if (product.has_variants) {
       setSelectedProduct(product);
       setShowVariantModal(true);
       return;
     }
 
-    // Add product without variants directly
     addProductToCart({
       id: product.id,
       name: product.name,
@@ -130,7 +128,6 @@ const POSView = ({ selectedTable }) => {
         orderId = orderResponse.data?.id || orderResponse.id;
         setCurrentOrderId(orderId);
 
-        // Add order lines
         for (const item of cartItems) {
           await orderService.addOrderLine(orderId, {
             product: item.id,
@@ -141,7 +138,6 @@ const POSView = ({ selectedTable }) => {
         }
       }
 
-      // Step 2: Create Razorpay Order
       const totalAmount = calculateTotal();
       const razorpayOrderData = {
         order_id: orderId,
@@ -151,7 +147,6 @@ const POSView = ({ selectedTable }) => {
       const razorpayResponse =
         await paymentService.createRazorpayOrder(razorpayOrderData);
 
-      // Backend wraps response in {success: true, data: {...}}
       if (
         razorpayResponse &&
         razorpayResponse.success &&
@@ -159,17 +154,15 @@ const POSView = ({ selectedTable }) => {
       ) {
         const razorpayData = razorpayResponse.data;
 
-        // Step 3: Open Razorpay Checkout
         const options = {
           key: razorpayData.razorpay_key,
-          amount: razorpayData.amount, // Amount in paisa
+          amount: razorpayData.amount,
           currency: razorpayData.currency || "INR",
           order_id: razorpayData.razorpay_order_id,
           name: "Odoo Cafe",
           description: `Order #${razorpayData.order_number}`,
           image: "/vite.svg",
           handler: async function (response) {
-            // Step 4: Verify Payment
             await handlePaymentSuccess(response, orderId);
           },
           modal: {
