@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { theme } from "../../theme/theme";
 import { ordersService } from "../../services/apiService";
 import { WS_URL } from "../../services/EndPoint";
-import Header from "../../components/Header";
+import { useAuth } from "../../context/AuthContext";
 
 const Kitchen = () => {
+  const { logout } = useAuth();
   const [orders, setOrders] = useState([]);
   const [draggedOrderId, setDraggedOrderId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,54 +14,47 @@ const Kitchen = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await ordersService.getKitchenOrders();
-      console.log("📥 API Response:", response);
+      
+      // We fetch from the main orders API because the kitchen viewset is strictly filtered
+      const statusesToFetch = ['sent_to_kitchen', 'prepared', 'completed'];
+      const responses = await Promise.all(
+        statusesToFetch.map(s => ordersService.getOrders({ status: s }))
+      );
 
-      let rawOrders = null;
+      let allRawOrders = [];
+      responses.forEach(resp => {
+        // Handle differences in response formats (results vs array)
+        const actualData = resp?.data || resp;
+        const results = actualData?.results || (Array.isArray(actualData) ? actualData : (actualData?.orders || []));
+        allRawOrders = [...allRawOrders, ...results];
+      });
 
-      // The API returns: { count, next, previous, results }
-      // ordersService.getKitchenOrders() returns response.data, so we check for results directly
-      if (response?.results && Array.isArray(response.results)) {
-        rawOrders = response.results;
-        console.log(`✅ Found ${rawOrders.length} orders`);
-      } else if (Array.isArray(response)) {
-        rawOrders = response;
-      }
+      // Remove duplicates just in case (e.g. if an order status changed during fetch)
+      const uniqueOrders = Array.from(new Map(allRawOrders.map(o => [o.id, o])).values());
 
-      if (rawOrders && rawOrders.length > 0) {
-        const mappedOrders = rawOrders.map(o => {
-          const itemCount = o.lines ? o.lines.length : 0;
-          console.log(`📋 Order ${o.order_number}: ${itemCount} items, status: ${o.status}`);
-
-          return {
-            id: o.order_number || `#${o.id}`,
-            originalId: o.id,
-            ticketId: o.order_number || `#${o.id}`,
-            table: o.table_number ? `Table ${o.table_number}` : (o.table || "Takeaway"),
-            items: o.lines ? o.lines.map(l => ({
-              lineId: l.id,
-              name: l.product_name || "Unknown Item",
-              qty: l.quantity || 1,
-              completed: l.status === 'ready'
-            })) : [],
-            // Map backend status to frontend columns
-            // Backend: 'pending', 'preparing', 'ready'
-            status: (o.status === 'draft' || o.status === 'to_cook' || o.status === 'sent_to_kitchen' || o.status === 'pending') ? 'to_cook'
-              : (o.status === 'in_progress' || o.status === 'preparing') ? 'preparing'
-                : (o.status === 'ready' || o.status === 'completed') ? 'ready'
-                  : 'to_cook', // Default to 'to_cook'
-            time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"
-          };
-        });
-
+      if (uniqueOrders.length > 0) {
+        const mappedOrders = uniqueOrders.map(o => ({
+          id: o.order_number || `#${o.id}`,
+          originalId: o.id,
+          ticketId: o.order_number || `#${o.id}`,
+          table: o.table_number ? `Table ${o.table_number}` : (o.table || "Takeaway"),
+          items: (o.lines || []).map(l => ({
+            lineId: l.id,
+            name: l.product_name || "Unknown Item",
+            qty: l.quantity || 1,
+            completed: l.status === 'ready'
+          })),
+          status: o.status === 'sent_to_kitchen' ? 'to_cook'
+            : o.status === 'prepared' ? 'preparing'
+              : o.status === 'completed' ? 'ready'
+                : 'to_cook',
+          time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"
+        }));
         setOrders(mappedOrders);
-        console.log("✅ Mapped Orders:", mappedOrders);
       } else {
-        console.warn("⚠️ No orders found");
         setOrders([]);
       }
     } catch (error) {
-      console.error("❌ API Error:", error);
       setError("Failed to connect to Kitchen API. Please check backend connection.");
     } finally {
       setLoading(false);
@@ -68,86 +62,70 @@ const Kitchen = () => {
   };
 
   useEffect(() => {
-    fetchOrders(); // Initial fetch
+    fetchOrders();
 
     let ws;
     const connectWebSocket = () => {
-      console.log("🔌 Connecting to WebSocket:", WS_URL);
       ws = new WebSocket(WS_URL);
 
-      ws.onopen = () => {
-        console.log("✅ WebSocket Connected");
-        setError(null); // Clear errors on connection
-      };
+      ws.onopen = () => setError(null);
 
       ws.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          console.log("📩 WebSocket Message:", data);
-
-          // Handle different message types
-          // If message has 'data' property with orders, or is directly an update
+          const wsData = JSON.parse(event.data);
           let incomingOrders = null;
 
-          if (data.type === 'orders_update' || data.type === 'order_created' || data.type === 'order_updated') {
-            // Check for various payload structures
-            if (data.orders && Array.isArray(data.orders)) incomingOrders = data.orders;
-            else if (data.data && Array.isArray(data.data)) incomingOrders = data.data;
-            else if (data.order) incomingOrders = [data.order]; // Single order update
+          // Robust parsing of WS message data (handles nested message.order or direct message)
+          const msg = wsData.message || wsData;
+          const payload = msg.data || msg;
+
+          if (wsData.type === 'order.update' || wsData.type === 'order_update' || wsData.type === 'order_updated') {
+            if (payload.order) incomingOrders = [payload.order];
+            else if (payload.results) incomingOrders = payload.results;
+            else if (Array.isArray(payload)) incomingOrders = payload;
           }
 
           if (incomingOrders) {
-            const mappedOrders = incomingOrders.map(o => ({
+            const mappedUpdates = incomingOrders.map(o => ({
               id: o.order_number || `#${o.id}`,
               originalId: o.id,
               ticketId: o.order_number || `#${o.id}`,
               table: o.table_number ? `Table ${o.table_number}` : (o.table || "Takeaway"),
-              items: o.lines ? o.lines.map(l => ({
+              items: (o.lines || []).map(l => ({
                 lineId: l.id,
                 name: l.product_name || "Unknown Item",
                 qty: l.quantity || 1,
                 completed: l.status === 'ready'
-              })) : [],
-              // Consistent Status Mapping
-              status: (o.status === 'draft' || o.status === 'to_cook' || o.status === 'sent_to_kitchen' || o.status === 'pending') ? 'to_cook'
-                : (o.status === 'in_progress' || o.status === 'preparing') ? 'preparing'
-                  : (o.status === 'ready' || o.status === 'completed') ? 'ready'
+              })),
+              status: o.status === 'sent_to_kitchen' ? 'to_cook'
+                : o.status === 'prepared' ? 'preparing'
+                  : o.status === 'completed' ? 'ready'
                     : 'to_cook',
               time: o.created_at ? new Date(o.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Now"
             }));
 
-            // If it's a full list replacement
-            if (mappedOrders.length > 1) {
-              setOrders(mappedOrders);
-            } else {
-              // If single order update, merge it
-              setOrders(prev => {
-                const newOrder = mappedOrders[0];
-                const exists = prev.find(p => p.id === newOrder.id);
-                if (exists) {
-                  return prev.map(p => p.id === newOrder.id ? newOrder : p);
-                }
-                return [...prev, newOrder];
+            setOrders(prev => {
+              let updated = [...prev];
+              mappedUpdates.forEach(newO => {
+                const idx = updated.findIndex(p => p.id === newO.id);
+                if (idx !== -1) updated[idx] = newO;
+                else updated.push(newO);
               });
-            }
-            console.log("⚡ WebSocket Updated Orders");
+              return updated;
+            });
           } else {
-            console.log("⚠️ Unknown WS format, fetching fresh data...");
             fetchOrders();
           }
-
         } catch (err) {
-          console.error("❌ Error process WebSocket message:", err);
+          // Error handling
         }
       };
 
       ws.onclose = () => {
-        console.log("🔌 WebSocket Disconnected, retrying in 3s...");
-        setTimeout(connectWebSocket, 3000); // Reconnect logic
+        setTimeout(connectWebSocket, 3000);
       };
 
       ws.onerror = (err) => {
-        console.error("❌ WebSocket Error:", err);
         ws.close();
       };
     };
@@ -169,22 +147,15 @@ const Kitchen = () => {
     // Optimistic Update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
 
-    // Map frontend status to backend status
-    // Frontend: 'to_cook', 'preparing', 'ready'
-    // Backend: 'pending', 'preparing', 'ready'
-    const backendStatus = newStatus === 'to_cook' ? 'pending'
-      : newStatus === 'preparing' ? 'preparing'
-        : newStatus === 'ready' ? 'ready'
-          : 'pending';
-
-    console.log(`Dragging order ${orderId} to ${newStatus} (Back: ${backendStatus})`);
+    // Map frontend column to backend status: sent_to_kitchen, prepared, completed
+    const backendStatus = newStatus === 'to_cook' ? 'sent_to_kitchen'
+      : newStatus === 'preparing' ? 'prepared'
+        : newStatus === 'ready' ? 'completed'
+          : 'sent_to_kitchen';
 
     try {
-      // Unified API call for Order Status (no line_id)
       await ordersService.updateStatus(order.originalId, { status: backendStatus });
-      console.log(`✅ Backend updated for order ${orderId}`);
     } catch (err) {
-      console.error("❌ Failed to update order status on drag", err);
       fetchOrders();
     }
   };
@@ -193,41 +164,30 @@ const Kitchen = () => {
     e.stopPropagation();
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
-    const item = order.items[idx];
+    
+    // Calculate new state for this item
+    const newItems = [...order.items];
+    const item = newItems[idx];
+    item.completed = !item.completed;
+
+    // Determine the overall order status to send
+    let statusToUpdate = 'prepared';
+    if (newItems.every(i => i.completed)) {
+      statusToUpdate = 'completed';
+    } else if (newItems.every(i => !i.completed)) {
+      statusToUpdate = 'sent_to_kitchen';
+    }
 
     // Optimistic Update
-    let allItemsWillBeReady = false;
-    setOrders(prev => prev.map(o => {
-      if (o.id !== orderId) return o;
-      const newItems = [...o.items];
-      const newCompletedState = !newItems[idx].completed;
-      newItems[idx] = { ...newItems[idx], completed: newCompletedState };
-
-      // Check if ALL items are now completed
-      if (newItems.every(i => i.completed)) {
-        allItemsWillBeReady = true;
-        return { ...o, items: newItems, status: 'ready' }; // Optimistically move to Ready column
-      }
-
-      return { ...o, items: newItems };
-    }));
+    setOrders(prev => prev.map(o => o.id === orderId ? { 
+      ...o, 
+      items: newItems,
+      status: statusToUpdate === 'completed' ? 'ready' : (statusToUpdate === 'prepared' ? 'preparing' : 'to_cook')
+    } : o));
 
     try {
-      // 1. Update Line Item Status (with line_id)
-      const newStatus = !item.completed ? 'ready' : 'pending';
-      await ordersService.updateStatus(order.originalId, {
-        line_id: item.lineId,
-        status: newStatus
-      });
-
-      // 2. If all items completed, update Order Status (no line_id)
-      if (allItemsWillBeReady) {
-        console.log(`🎉 All items ready for ${orderId}, moving to Ready...`);
-        await ordersService.updateStatus(order.originalId, { status: 'ready' });
-      }
+      await ordersService.updateStatus(order.originalId, { status: statusToUpdate });
     } catch (err) {
-      console.error("Failed to update status", err);
-      // Revert on error
       fetchOrders();
     }
   };
@@ -268,7 +228,8 @@ const Kitchen = () => {
             Live Order Management
           </p>
         </div>
-        <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+          
           {Columns.map(col => (
             <div key={col.id} className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-200">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: col.color }}></div>
@@ -278,6 +239,12 @@ const Kitchen = () => {
               </span>
             </div>
           ))}
+          <button 
+            onClick={logout}
+            className="px-4 py-2 bg-white text-gray-700 font-bold rounded-lg border border-gray-200 shadow-sm hover:bg-gray-50 flex items-center gap-2 mr-4"
+          >
+            <span>Logout</span>
+          </button>
         </div>
       </div>
 
