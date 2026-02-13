@@ -394,6 +394,12 @@ class VerifyPaymentView(APIView):
             order.razorpay_payment_id = razorpay_payment_id
             order.razorpay_signature = razorpay_signature
             
+            # Mark table as OCCUPIED after payment is successful
+            if order.table:
+                from apps.tables.models import Table
+                order.table.status = Table.Status.OCCUPIED
+                order.table.save()
+            
             # Update order status to SENT_TO_KITCHEN if still in DRAFT
             if order.status == Order.Status.DRAFT:
                 order.status = Order.Status.SENT_TO_KITCHEN

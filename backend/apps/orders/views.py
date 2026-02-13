@@ -149,7 +149,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch', 'delete'], url_path='lines/(?P<line_id>[^/.]+)')
     def manage_line(self, request, id=None, line_id=None):
-        """
+        """ra
         PATCH/DELETE /api/orders/{id}/lines/{line_id}/
         Update or remove order line.
         """
@@ -222,6 +222,39 @@ class OrderViewSet(viewsets.ModelViewSet):
         return APIResponse.success(
             data={'status': order.status, 'sent_at': timezone.now()},
             message="Order sent to kitchen"
+        )
+
+    @action(detail=True, methods=['post'], url_path='close')
+    def close_order(self, request, id=None):
+        """
+        POST /api/orders/{id}/close/
+        Close order and unoccupy the table.
+        This is called after meal is complete and table should be freed up.
+        """
+        from apps.tables.models import Table
+        
+        order = self.get_object()
+        
+        # Mark order as completed
+        order.status = Order.Status.COMPLETED
+        order.save()
+        
+        # Unoccupy the table
+        if order.table:
+            order.table.status = Table.Status.AVAILABLE
+            order.table.save()
+            logger.info(f"Table {order.table.table_number} marked as AVAILABLE after order {order.order_number}")
+        
+        logger.info(f"Order {order.order_number} closed and table unoccupied by user {request.user}")
+        
+        return APIResponse.success(
+            data={
+                'order_id': order.id,
+                'order_number': order.order_number,
+                'status': order.status,
+                'table_status': order.table.status if order.table else None
+            },
+            message="Order closed and table freed up"
         )
 
     @action(detail=True, methods=['get'], url_path='payment-qr')
@@ -501,6 +534,7 @@ class QROrderView(views.APIView):
 
             # Fetch product to get price and tax_rate
             from apps.menu.models import Product
+            
             try:
                 product = Product.objects.get(pk=product_id)
             except Product.DoesNotExist:
@@ -513,7 +547,7 @@ class QROrderView(views.APIView):
             # Create order line with explicit unit_price and tax_rate
             print(f"[QR_ORDER][{request_id}] BEFORE CREATE - Product: {product.name}, Price: {product.price}, Tax: {product.tax_rate}")
             
-            created_line = OrderLine.objects.create(
+            created_line = OrderLine.objects.bulk_create(
                 order=order,
                 product=product,
                 variant_id=variant_id,
@@ -550,8 +584,8 @@ class QROrderView(views.APIView):
             from django.conf import settings
 
             # Validate Razorpay credentials exist
-            razorpay_key_id = getattr(settings, 'RAZORPAY_KEY_ID', 'rzp_test_Ruxoff4VYGgcs7')
-            razorpay_key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', 'MEEFPYXvtbrJuJO6pcZoFXXp')
+            razorpay_key_id = getattr(settings, 'RAZORPAY_KEY_ID', '')
+            razorpay_key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', '')
 
             if not razorpay_key_id or not razorpay_key_secret:
                 logger.error(f"[QR_ORDER][{request_id}] Razorpay credentials not configured")
@@ -560,6 +594,7 @@ class QROrderView(views.APIView):
                     data=OrderSerializer(order).data,
                     message="Order created but payment gateway not configured. Please contact staff."
                 )
+                
 
             client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
 

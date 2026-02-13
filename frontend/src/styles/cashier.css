@@ -3216,6 +3216,7 @@
 .detail-actions {
   display: flex;
   gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .btn-reprint {
@@ -3227,6 +3228,15 @@
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 120px;
+}
+
+.btn-reprint:hover {
+  background-color: #2c3e50;
 }
 
 .btn-resume {
@@ -3238,6 +3248,65 @@
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 120px;
+}
+
+.btn-resume:hover {
+  background-color: #2980b9;
+}
+
+.btn-close-order {
+  flex: 1;
+  padding: 1rem;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 120px;
+  transition: all 0.2s ease;
+}
+
+.btn-close-order:hover:not(:disabled) {
+  background-color: #229954;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
+}
+
+.btn-close-order:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.btn-completed-badge {
+  flex: 1;
+  padding: 1rem;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  text-align: center;
+  font-size: 1.1rem;
+  min-width: 120px;
 }
 
 /* Cashier Settings */
@@ -4909,6 +4978,13 @@
 
 .cart-main-actions-single {
   display: flex;
+  width: 100%;
+}
+
+.cart-main-actions-dual {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
   width: 100%;
 }
 

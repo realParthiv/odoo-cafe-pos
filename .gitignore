@@ -87,3 +87,28 @@ apis for admin.txt
 backend/KITCHEN_API_DOCS.md
 backend/UNIFIED_KITCHEN_API.md
 backend/apps/orders/management/
+
+# =========================
+# Internal Dev Documentation
+# =========================
+ORDER_FLOW_DIAGRAM.md
+ORDER_FLOW_UPDATE.md
+CORS_FIX.md
+TESTING_GUIDE.md
+PAYMENT_FLOW_IMPLEMENTATION.md
+PROJECT_DOCUMENTATION.md
+QUICK_REFERENCE.md
+test_kitchen_api.md
+backend/RAZORPAY_INTEGRATION.md
+backend/RAZORPAY_FIXES_SUMMARY.md
+backend/KITCHEN_API_DOCS.md
+backend/UNIFIED_KITCHEN_API.md
+frontend/RAZORPAY_INTEGRATION.md
+frontend/apis for admin.txt
+backend/apis for admin.txt
+
+# =========================
+# Helper Scripts
+# =========================
+start_backend.ps1
+test_backend_connection.ps1

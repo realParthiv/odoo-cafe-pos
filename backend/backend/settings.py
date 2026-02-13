@@ -7,7 +7,6 @@ from pathlib import Path
 from datetime import timedelta
 from decouple import config, Csv
 import os
-from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,14 +16,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY SETTINGS
 # =============================================================================
 
-SECRET_KEY = config(
-    'DJANGO_SECRET_KEY',
-    default='django-insecure-cq%m8#%$3k#hxk4ba&-u#@5h(4c%*uj4#k%!&gc6_kyjtb2+3p'
-)
+SECRET_KEY = config('DJANGO_SECRET_KEY')
 
 DEBUG = config('DJANGO_DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('DJANGO_ALLOWED_HOSTS', default='*', cast=Csv())
+ALLOWED_HOSTS = ['*']  # Allow all hosts including ngrok
 
 
 # =============================================================================
@@ -76,16 +72,15 @@ ROOT_URLCONF = 'backend.urls'
 # CORS CONFIGURATION
 # =============================================================================
 
-# For development: Allow all origins
+# For development: Allow all origins (including ngrok)
 # ⚠️ In production, restrict to specific origins only!
-CORS_ORIGIN_ALLOW_ALL = config('CORS_ORIGIN_ALLOW_ALL', default=True, cast=bool)
+CORS_ORIGIN_ALLOW_ALL = True
 
 # Specific allowed origins (used when CORS_ORIGIN_ALLOW_ALL is False)
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:5173,http://127.0.0.1:5173',
-    cast=Csv()
-)
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]
 
 # Allow credentials (cookies, authorization headers, etc.)
 CORS_ALLOW_CREDENTIALS = True
@@ -100,7 +95,7 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# Allow all headers
+# Allow all headers (including ngrok headers)
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -112,7 +107,22 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
     'ngrok-skip-browser-warning',
+    'user-agent',
 ]
+
+# Expose all headers for ngrok
+CORS_EXPOSE_HEADERS = ['*']
+
+# Allow all origins for preflight requests
+CORS_PREFLIGHT_MAX_AGE = 86400  # 24 hours
+
+# CSRF Settings (for ngrok and all domains)
+CSRF_TRUSTED_ORIGINS = ['*']  # Allow all origins
+CSRF_COOKIE_SECURE = False  # Allow over HTTP for dev
+CSRF_COOKIE_HTTPONLY = False
+SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SAMESITE = None
+CSRF_COOKIE_SAMESITE = None
 
 
 TEMPLATES = [
@@ -143,7 +153,7 @@ DATABASES = {
         'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.mysql'),
         'NAME': os.environ.get('DB_NAME', 'cafe_pos_db'),
         'USER': os.environ.get('DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'Admin@321'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
         'PORT': os.environ.get('DB_PORT', '3306'),
         'OPTIONS': {
@@ -177,7 +187,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # Allow by default, restrict per-view
     ),
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
@@ -336,10 +346,10 @@ EMAIL_FAIL_SILENTLY = False
 STAFF_INVITATION_EXPIRY_DAYS = 7
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 
-# Razorpay Configuration - Direct Values
-RAZORPAY_KEY_ID = 'rzp_test_Ruxoff4VYGgcs7'
-RAZORPAY_KEY_SECRET = 'MEEFPYXvtbrJuJO6pcZoFXXp'
-RAZORPAY_WEBHOOK_SECRET = 'sample_webhook_secret'
+# Razorpay Configuration
+RAZORPAY_KEY_ID = config('RAZORPAY_KEY_ID', default='')
+RAZORPAY_KEY_SECRET = config('RAZORPAY_KEY_SECRET', default='')
+RAZORPAY_WEBHOOK_SECRET = config('RAZORPAY_WEBHOOK_SECRET', default='')
 
 
 # =============================================================================

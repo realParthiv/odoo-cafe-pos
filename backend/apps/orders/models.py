@@ -16,6 +16,7 @@ class Order(models.Model):
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
         SENT_TO_KITCHEN = 'sent_to_kitchen', 'Sent to Kitchen'
+        PREPARED = 'prepared', 'Prepared'
         COMPLETED = 'completed', 'Completed'
         CANCELLED = 'cancelled', 'Cancelled'
 
@@ -30,6 +31,7 @@ class Order(models.Model):
     
     session = models.ForeignKey(POSSession, on_delete=models.CASCADE, related_name='orders')
     table = models.ForeignKey(Table, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
+    
     
     customer_name = models.CharField(max_length=100, blank=True)
     customer_phone = models.CharField(max_length=20, blank=True)
@@ -74,10 +76,9 @@ class Order(models.Model):
             random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
             self.order_number = f"ORD-{date_str}-{random_str}"
         
-        # When order is created for a table, status should change to occupied
-        if self.table and self.status == self.Status.DRAFT:
-            self.table.status = Table.Status.OCCUPIED
-            self.table.save()
+        # NOTE: Table is NOT occupied when order is created (draft)
+        # Table will be marked as occupied only after payment is completed
+        # This allows customers to view menu and add items without locking the table
             
         super().save(*args, **kwargs)
 

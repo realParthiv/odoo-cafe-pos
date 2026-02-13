@@ -3,9 +3,12 @@ import { BASE_URL } from "./EndPoint";
 
 const api = axios.create({
   baseURL: BASE_URL,
+  timeout: 30000, // 30 second timeout
   headers: {
     "ngrok-skip-browser-warning": "true",
+    "Content-Type": "application/json",
   },
+  withCredentials: false, // Set to true if using cookies
 });
 
 // Add a request interceptor
@@ -66,6 +69,16 @@ api.interceptors.response.use(
       response: error.response?.data,
       status: error.response?.status,
     });
+
+    // Handle network errors (backend down, ngrok tunnel closed, etc.)
+    if (error.message === 'Network Error' || error.code === 'ERR_NETWORK') {
+      console.error("🔥 Network Error - Backend may be down or ngrok tunnel closed");
+      console.error("Current BASE_URL:", BASE_URL);
+      console.error("Check:");
+      console.error("  1. Is Django backend running? (python manage.py runserver)");
+      console.error("  2. Is ngrok tunnel active? (ngrok http 8000)");
+      console.error("  3. Is BASE_URL in EndPoint.js correct?");
+    }
 
     // Handle 401 Unauthorized errors (invalid/expired token)
     if (error.response?.status === 401) {

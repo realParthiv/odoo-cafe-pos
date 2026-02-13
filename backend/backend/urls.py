@@ -13,6 +13,7 @@ urlpatterns = [
     
     # API endpoints
     path('api/auth/', include('apps.accounts.urls', namespace='accounts')),
+    path('api/customers/', include('apps.accounts.urls')),  # Direct customer access
     path('api/sessions/', include('apps.sessions.urls', namespace='sessions')),
     path('api/menu/', include('apps.menu.urls', namespace='menu')),
     path('api/tables/', include('apps.tables.urls', namespace='tables')),
