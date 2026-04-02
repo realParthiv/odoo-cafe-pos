@@ -8,6 +8,8 @@ const Kitchen = () => {
   const { logout } = useAuth();
   const [orders, setOrders] = useState([]);
   const [draggedOrderId, setDraggedOrderId] = useState(null);
+  const [dragOverColumn, setDragOverColumn] = useState(null);
+  const [dragPreview, setDragPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -196,12 +198,52 @@ const Kitchen = () => {
 
   // --- Drag & Drop ---
   const handleDragStart = (e, orderId) => {
+    const order = orders.find((o) => o.id === orderId);
     setDraggedOrderId(orderId);
+    e.dataTransfer.setData("text/plain", String(orderId));
     e.dataTransfer.effectAllowed = "move";
+
+    // Hide native semi-transparent drag image and use our own 100% opacity floating preview.
+    const transparentImg = new Image();
+    transparentImg.src =
+      "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    e.dataTransfer.setDragImage(transparentImg, 0, 0);
+
+    setDragPreview({
+      x: e.clientX,
+      y: e.clientY,
+      order: order || null,
+    });
+  };
+  const handleDrag = (e) => {
+    if (e.clientX === 0 && e.clientY === 0) return;
+    setDragPreview((prev) =>
+      prev
+        ? {
+            ...prev,
+            x: e.clientX,
+            y: e.clientY,
+          }
+        : prev,
+    );
+  };
+  const handleDragEnd = () => {
+    setDraggedOrderId(null);
+    setDragOverColumn(null);
+    setDragPreview(null);
   };
   const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+  };
+  const handleDragEnterColumn = (status) => {
+    setDragOverColumn(status);
+  };
+  const handleDragLeaveColumn = (e) => {
+    // Prevent flicker when moving between children inside a column
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverColumn(null);
+    }
   };
   const handleDrop = (e, targetStatus) => {
     e.preventDefault();
@@ -209,6 +251,8 @@ const Kitchen = () => {
       moveOrder(draggedOrderId, targetStatus);
       setDraggedOrderId(null);
     }
+    setDragOverColumn(null);
+    setDragPreview(null);
   };
 
   const Columns = [
@@ -294,15 +338,26 @@ const Kitchen = () => {
       )}
 
       {/* Kanban Board */}
+      {draggedOrderId && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+          Dragging order card. Drop it into a column to update status.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-140px)]">
         {Columns.map((col) => (
           <div
             key={col.id}
             onDragOver={handleDragOver}
+            onDragEnter={() => handleDragEnterColumn(col.id)}
+            onDragLeave={handleDragLeaveColumn}
             onDrop={(e) => handleDrop(e, col.id)}
-            className="flex flex-col rounded-lg overflow-hidden transition-colors border max-h-full bg-white shadow-sm"
+            className="flex flex-col rounded-lg overflow-hidden transition-all border max-h-full bg-white shadow-sm"
             style={{
-              borderColor: theme.colors.border,
+              borderWidth: dragOverColumn === col.id ? "2px" : "1px",
+              borderStyle: dragOverColumn === col.id ? "dashed" : "solid",
+              borderColor: dragOverColumn === col.id ? col.color : theme.colors.border,
+              backgroundColor: dragOverColumn === col.id ? "#f8fafc" : "#ffffff",
+              boxShadow: dragOverColumn === col.id ? `0 0 0 3px ${col.color}33` : undefined,
             }}
           >
             {/* Column Header */}
@@ -338,11 +393,20 @@ const Kitchen = () => {
                       key={order.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, order.id)}
+                      onDrag={handleDrag}
+                      onDragEnd={handleDragEnd}
                       className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-move group relative border border-gray-200"
                       style={{
                         borderLeftWidth: "3px",
                         borderLeftColor: col.color,
-                        opacity: draggedOrderId === order.id ? 0.5 : 1,
+                        borderColor: draggedOrderId === order.id ? "#1f2937" : "#e5e7eb",
+                        borderWidth: draggedOrderId === order.id ? "2px" : "1px",
+                        opacity: draggedOrderId === order.id ? 1 : 1,
+                        transform: draggedOrderId === order.id ? "scale(0.99)" : "scale(1)",
+                        boxShadow:
+                          draggedOrderId === order.id
+                            ? "0 12px 28px rgba(0, 0, 0, 0.22)"
+                            : undefined,
                       }}
                     >
                       {/* Top Row: ID & Time */}
@@ -433,6 +497,48 @@ const Kitchen = () => {
           </div>
         ))}
       </div>
+
+      {dragPreview?.order && (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: dragPreview.x + 12,
+            top: dragPreview.y + 12,
+            width: 320,
+            opacity: 1,
+            transform: "rotate(1deg)",
+          }}
+        >
+          <div className="rounded-lg border-2 border-gray-900 bg-white p-4 shadow-2xl">
+            <div className="mb-2 flex items-start justify-between">
+              <span className="font-bold text-base text-gray-900">
+                {dragPreview.order.id}
+              </span>
+              <span className="text-xs font-semibold text-gray-500">
+                {dragPreview.order.time}
+              </span>
+            </div>
+            <div className="mb-2 text-xs font-semibold text-gray-600">
+              {dragPreview.order.table}
+            </div>
+            <div className="space-y-1">
+              {dragPreview.order.items.slice(0, 3).map((item, idx) => (
+                <div
+                  key={`${dragPreview.order.id}-drag-item-${idx}`}
+                  className="truncate text-sm font-medium text-gray-700"
+                >
+                  {item.name} x{item.qty}
+                </div>
+              ))}
+              {dragPreview.order.items.length > 3 && (
+                <div className="text-xs font-semibold text-gray-500">
+                  +{dragPreview.order.items.length - 3} more items
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

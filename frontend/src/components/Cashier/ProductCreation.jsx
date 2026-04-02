@@ -11,7 +11,7 @@ const ProductCreation = () => {
     category_id: '',
     description: '',
     price: '',
-    tax: 5,
+    tax: '5.00',
     uom: 'Unit',
     image: null,
     imagePreview: null
@@ -64,7 +64,7 @@ const ProductCreation = () => {
         name: productData.name,
         description: productData.description,
         price: parseFloat(productData.price).toFixed(2),
-        tax_rate: parseInt(productData.tax),
+        tax_rate: productData.tax,
         uom: productData.uom,
         has_variants: variants.length > 0,
         image: productData.imagePreview, // This is the Base64 string from the reader
@@ -87,7 +87,7 @@ const ProductCreation = () => {
         category_id: '',
         description: '',
         price: '',
-        tax: 5,
+        tax: '5.00',
         uom: 'Unit',
         image: null,
         imagePreview: null
@@ -242,13 +242,12 @@ const ProductCreation = () => {
                 <label>Customer Tax</label>
                 <select 
                   value={productData.tax}
-                  onChange={(e) => handleInputChange('tax', parseInt(e.target.value))}
+                  onChange={(e) => handleInputChange('tax', e.target.value)}
                 >
-                  <option value={5}>5%</option>
-                  <option value={10}>10%</option>
-                  <option value={12}>12%</option>
-                  <option value={18}>18%</option>
-                  <option value={28}>28%</option>
+                  <option value="5.00">5%</option>
+                  <option value="12.00">12%</option>
+                  <option value="18.00">18%</option>
+                  <option value="28.00">28%</option>
                 </select>
               </div>
             </div>

@@ -10,9 +10,13 @@ class KitchenOrderViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet for kitchen staff to view and manage orders.
     """
-    # Only show orders relevant to kitchen
+    # Show all orders that can appear on the kitchen board columns.
     queryset = Order.objects.filter(
-        status=Order.Status.SENT_TO_KITCHEN
+        status__in=[
+            Order.Status.SENT_TO_KITCHEN,
+            Order.Status.PREPARED,
+            Order.Status.COMPLETED,
+        ]
     ).prefetch_related('lines')
     serializer_class = OrderSerializer
     permission_classes = [IsKitchenStaff | IsAdmin]
@@ -56,10 +60,63 @@ class KitchenOrderViewSet(viewsets.ReadOnlyModelViewSet):
                 error_code="MISSING_STATUS"
             )
         
-        if new_status not in OrderLine.Status.values:
+        line_status_values = set(OrderLine.Status.values)
+        order_status_values = set(Order.Status.values)
+
+        if new_status not in line_status_values and new_status not in order_status_values:
             return APIResponse.error(
-                message=f"Invalid status. Choices: {OrderLine.Status.values}",
+                message=(
+                    f"Invalid status. Line choices: {list(line_status_values)}; "
+                    f"Order choices: {list(order_status_values)}"
+                ),
                 error_code="INVALID_STATUS"
+            )
+
+        # Frontend kitchen board moves columns using ORDER statuses
+        # (sent_to_kitchen/prepared/completed). Support that directly.
+        if new_status in order_status_values and not line_id:
+            order_to_line_status = {
+                Order.Status.SENT_TO_KITCHEN: OrderLine.Status.PENDING,
+                Order.Status.PREPARED: OrderLine.Status.PREPARING,
+                Order.Status.COMPLETED: OrderLine.Status.READY,
+            }
+
+            mapped_line_status = order_to_line_status.get(new_status)
+            updated_count = 0
+            if mapped_line_status:
+                updated_count = order.lines.all().update(status=mapped_line_status)
+
+            order.status = new_status
+            order.save(update_fields=['status', 'updated_at'])
+            order.refresh_from_db()
+
+            from asgiref.sync import async_to_sync
+            from channels.layers import get_channel_layer
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "kitchen_orders",
+                {
+                    "type": "order.update",
+                    "message": {
+                        "action": "order_status_update",
+                        "order_id": order.id,
+                        "status": new_status,
+                        "order": OrderSerializer(order).data
+                    }
+                }
+            )
+
+            response_data = {
+                "update_type": "order_status",
+                "order": OrderSerializer(order).data,
+                "updated_lines_count": updated_count,
+                "new_status": new_status,
+            }
+
+            return APIResponse.success(
+                data=response_data,
+                message=f"Order marked as {new_status}"
             )
         
         # Determine if updating single line or all lines

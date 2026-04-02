@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Category, Product, ProductVariant
+from decimal import Decimal
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,6 +11,8 @@ class ProductSerializer(serializers.ModelSerializer):
     variants = ProductVariantSerializer(many=True, required=False)
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_color = serializers.CharField(source='category.color', read_only=True)
+    # Use DecimalField + explicit validation so inputs like 5 and 5.00 are treated the same.
+    tax_rate = serializers.DecimalField(max_digits=5, decimal_places=2)
     
     class Meta:
         model = Product
@@ -19,6 +22,15 @@ class ProductSerializer(serializers.ModelSerializer):
             'uom', 'image', 'image_url', 'has_variants', 'variants', 
             'is_active', 'created_at'
         ]
+
+    def validate_tax_rate(self, value):
+        allowed_rates = {choice[0] for choice in Product.TAX_CHOICES}
+        if value not in allowed_rates:
+            allowed_display = ', '.join(str(rate) for rate in sorted(allowed_rates))
+            raise serializers.ValidationError(
+                f"Invalid tax_rate. Allowed values are: {allowed_display}."
+            )
+        return value
 
     def create(self, validated_data):
         variants_data = validated_data.pop('variants', [])
